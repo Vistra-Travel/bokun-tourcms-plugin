@@ -1,0 +1,120 @@
+buildscript {
+    ext {
+        awsVersion = '1.11.455'
+    }
+    repositories {
+        maven { url "https://plugins.gradle.org/m2/" }
+        mavenLocal()
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath("com.amazonaws:aws-java-sdk-core:${awsVersion}")
+        classpath("com.amazonaws:aws-java-sdk-s3:${awsVersion}")
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.1'
+        classpath('se.transmode.gradle:gradle-docker:1.2')
+        classpath('jp.classmethod.aws:gradle-aws-plugin:0.32') {
+            exclude group: 'jp.xet.spar-wings', module: 'spar-wings-awscli-config'
+        }
+    }
+}
+
+apply plugin: "java"
+apply plugin: "application"
+apply plugin: "idea"
+apply plugin: 'docker'
+apply plugin: 'jp.classmethod.aws'
+
+group = 'bokun'
+//version = '0.3.4'
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '4.7'
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+configurations.all {
+    resolutionStrategy.cacheDynamicVersionsFor 0, 'hours'
+    resolutionStrategy.cacheChangingModulesFor 0, 'hours'
+}
+
+mainClassName = "io.bokun.inventory.plugin.tourcms.Main"
+
+def buildNumber = 'DEV'
+if (project.hasProperty('buildNo')) {
+    buildNumber = buildNo
+}
+
+def jsonName = "${jar.baseName}-${buildNumber}.json"
+def dockerName = "${group}/${jar.baseName}:${buildNumber}"
+def jarName = "${jar.baseName}.jar"
+
+repositories {
+    mavenCentral()
+    jcenter()
+    mavenLocal()
+    maven {
+        url "http://public-pmr.bokun.io.s3-website-eu-west-1.amazonaws.com/snapshots"
+    }
+    maven {
+        url "http://public-pmr.bokun.io.s3-website-eu-west-1.amazonaws.com/release"
+    }
+}
+
+dependencies {
+    // Giữ nguyên các thư viện cũ
+    compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
+    compile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.25'
+    compile group: 'com.google.guava', name: 'guava', version: '27.1-jre'
+    compile 'io.grpc:grpc-all:1.11.0'
+    compile 'io.bokun.inventory:common-api:0.4.2'
+    compile 'io.bokun.inventory:plugin-api:0.4.2'
+    compile group: 'com.squareup.okhttp', name: 'okhttp', version: '2.7.5'
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.6'
+    compile 'com.google.inject:guice:4.2.2'
+    compile 'io.netty:netty-tcnative-boringssl-static:2.0.1.Final'
+    compile 'io.undertow:undertow-core:2.0.19.Final'
+
+    // Thư viện mới
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
+    compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.13.4'
+    compile 'commons-codec:commons-codec:1.15'
+    compile 'com.squareup.okhttp3:okhttp:4.9.3' // Sử dụng phiên bản mới nhất cho OkHttp
+    compile 'org.apache.commons:commons-collections4:4.4'
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
+
+    // AWS SDK
+    compile 'com.amazonaws:aws-java-sdk-core:1.11.455'
+    compile 'com.amazonaws:aws-java-sdk-s3:1.11.455'
+
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+idea {
+    module {
+        sourceDirs += file("${projectDir}/src/generated/main/java");
+        sourceDirs += file("${projectDir}/src/generated/main/grpc");
+    }
+}
+
+mainClassName = "io.bokun.inventory.plugin.tourcms.Main"
+
+startScripts.enabled = false
+
+task sourceJava(type: Jar) {
+    from sourceSets.main.allJava
+}
+
+jar {
+    from {
+        (configurations.runtime).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+    manifest {
+        attributes 'Main-Class': 'io.bokun.inventory.plugin.tourcms.Main'
+    }
+}
