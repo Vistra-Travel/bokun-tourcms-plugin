@@ -82,7 +82,7 @@ dependencies {
     compile 'com.fasterxml.jackson.core:jackson-databind:2.13.4'
     compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.13.4'
     compile 'commons-codec:commons-codec:1.15'
-    compile 'com.squareup.okhttp3:okhttp:4.9.3' // Sử dụng phiên bản mới nhất cho OkHttp
+    compile 'com.squareup.okhttp3:okhttp:4.9.3'
     compile 'org.apache.commons:commons-collections4:4.4'
     compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
 
