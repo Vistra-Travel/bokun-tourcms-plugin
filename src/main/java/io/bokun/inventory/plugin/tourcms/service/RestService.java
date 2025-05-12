@@ -394,8 +394,6 @@ public class RestService {
             }
             description.setExtras(ImmutableList.copyOf(extras));
 
-            description.setTicketType();
-
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
             exchange.getResponseSender().send(new Gson().toJson(description));
         } catch (IOException | NoSuchAlgorithmException | InvalidKeyException exception) {
