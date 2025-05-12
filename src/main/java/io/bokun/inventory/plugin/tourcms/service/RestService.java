@@ -231,6 +231,12 @@ public class RestService {
                     }
                 }
             }
+            if (rates.isEmpty()) {
+                rates.addAll(ImmutableList.of(
+                        new Rate().id("oneway").label("Oneway"),
+                        new Rate().id("return").label("Return")
+                ));
+            }
             description.setRates(rates);
 
             // 5. bookingType
