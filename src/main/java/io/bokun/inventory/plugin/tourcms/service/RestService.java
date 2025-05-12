@@ -76,6 +76,37 @@ public class RestService {
         exchange.getResponseSender().send(new Gson().toJson(definition));
     }
 
+    private List<BasicProductInfo> mapProductsList(JsonNode node) {
+        List<BasicProductInfo> products = new ArrayList<>();
+        JsonNode productsList = node.get("tour");
+
+        if (productsList == null || productsList.isEmpty()) {
+            return products;
+        }
+
+        List<JsonNode> productNodes = productsList.isArray() ?
+                ImmutableList.copyOf(productsList) :
+                ImmutableList.of(productsList);
+
+        for (JsonNode product : productNodes) {
+            BasicProductInfo basicProductInfo = new BasicProductInfo();
+            basicProductInfo.setId(product.path("tour_id").asText());
+            basicProductInfo.setName(product.path("tour_name").asText());
+            basicProductInfo.setDescription(product.path("shortdesc").asText());
+
+            PricingCategory fromPrice = new PricingCategory();
+            fromPrice.setId(product.path("tour_id").asText() + "_" + product.path("from_price").asText());
+            fromPrice.setLabel(product.path("from_price_display").asText());
+
+            basicProductInfo.setPricingCategories(ImmutableList.of(fromPrice));
+            basicProductInfo.setCities(ImmutableList.of(product.path("location").asText()));
+            basicProductInfo.setCountries(ImmutableList.of(product.path("country").asText()));
+
+            products.add(basicProductInfo);
+        }
+
+        return products;
+    }
     public void searchProducts(@Nonnull HttpServerExchange exchange) {
         boolean isGetRequest = "GET".equalsIgnoreCase(exchange.getRequestMethod().toString());
         TourCmsClient tourCmsClient = new TourCmsClient();
@@ -115,27 +146,8 @@ public class RestService {
         int totalProducts = 0;
         try {
             JsonNode dataNode = objectMapper.readTree(data);
-
             totalProducts = dataNode.get("total_tour_count").asInt();
-            JsonNode productsList = dataNode.get("tour");
-            for (JsonNode product : productsList) {
-                BasicProductInfo basicProductInfo = new BasicProductInfo();
-                basicProductInfo.setId(product.get("tour_id").asText());
-                basicProductInfo.setName(product.get("tour_name").asText());
-                basicProductInfo.setDescription(product.get("shortdesc").asText());
-
-                basicProductInfo.setPricingCategories(new ArrayList<>());
-                PricingCategory fromPrice = new PricingCategory();
-                fromPrice.setId(product.get("tour_id").asText() + "_" + product.get("from_price").asText());
-                fromPrice.setLabel(product.get("from_price_display").asText());
-                basicProductInfo.getPricingCategories().add(fromPrice);
-
-                basicProductInfo.setCities(ImmutableList.of(product.get("location").asText()));
-                basicProductInfo.setCountries(ImmutableList.of(product.get("country").asText()));
-
-                products.add(basicProductInfo);
-            }
-
+            products = mapProductsList(dataNode);
         } catch (JsonProcessingException e) {
             AppLogger.error(TAG, "Couldn't process products", e);
         }
@@ -311,10 +323,8 @@ public class RestService {
             // 12. startTimes
             if (description.getBookingType().equals(BookingType.DATE_AND_TIME)) {
                 JsonNode startTimeNode = product.path("start_time");
-                if (startTimeNode.isTextual() && startTimeNode.asText().contains(":")) {
-                    if (!startTimesByDepartureTypes.contains(startTimeNode.asText())) {
-                        startTimesByDepartureTypes.add(startTimeNode.asText());
-                    }
+                if (startTimeNode.isTextual() && startTimeNode.asText().contains(":") && !startTimesByDepartureTypes.contains(startTimeNode.asText())) {
+                    startTimesByDepartureTypes.add(startTimeNode.asText());
                 }
                 startTimesByDepartureTypes.sort((time1, time2) -> {
                     String[] parts1 = time1.split(":");
