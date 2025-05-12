@@ -193,7 +193,7 @@ public class RestService {
                 for (JsonNode priceNote : pricesNode) {
                     PricingCategory pricesCategory = new PricingCategory();
                     pricesCategory.setId(product.get("tour_id").asText() + "_" + priceNote.get("from_price").asText());
-                    pricesCategory.setLabel(priceNote.get("from_price_display").asText());
+                    pricesCategory.setLabel(priceNote.get("label_1").asText());
                     pricesCategory.setMinAge(priceNote.get("agerange_min").asInt());
                     pricesCategory.setMaxAge(priceNote.get("agerange_max").asInt());
                     prices.add(pricesCategory);
@@ -208,23 +208,27 @@ public class RestService {
             if (departureTypesNode.isArray()) {
                 for (JsonNode type : departureTypesNode) {
                     JsonNode fields = type.path("fields").path("field");
+                    AppLogger.info(TAG, String.format("Departure fields: %s", fields));
                     if (fields.isArray()) {
                         for (JsonNode field : fields) {
-                            if (field.get("name").asText().equals("supplier_note") && field.get("value").isTextual()) {
-                                String rateId = field.get("value").asText();
-                                boolean exists = rates.stream().anyMatch(r -> r.getId().equals(rateId));
-                                if (!exists) {
-                                    Rate rate = new Rate();
-                                    rate.setId(rateId);
-                                    rate.setLabel(rateId.substring(0, 1).toUpperCase() + rateId.substring(1).toLowerCase());
-                                    rates.add(rate);
+                            AppLogger.info(TAG, String.format("Departure field: %s", field));
+                            String fieldName = field.path("name").asText();
+                            String fieldValue = field.path("value").asText();
+                            if (fieldName != null && fieldValue != null) {
+                                if (fieldName.equals("supplier_note")) {
+                                    boolean exists = rates.stream().anyMatch(r -> r.getId().equals(fieldValue));
+                                    if (!exists) {
+                                        Rate rate = new Rate();
+                                        rate.setId(fieldValue);
+                                        rate.setLabel(fieldValue.substring(0, 1).toUpperCase() + fieldValue.substring(1).toLowerCase());
+                                        rates.add(rate);
+                                    }
                                 }
-                            }
-                            if (field.get("name").asText().equals("start_time") && field.get("value").isTextual()) {
-                                String startTime = field.get("value").asText();
-                                boolean exists = startTimesByDepartureTypes.contains(startTime);
-                                if (!exists) {
-                                    startTimesByDepartureTypes.add(startTime);
+                                if (fieldName.equals("start_time")) {
+                                    boolean exists = startTimesByDepartureTypes.contains(fieldValue);
+                                    if (!exists) {
+                                        startTimesByDepartureTypes.add(fieldValue);
+                                    }
                                 }
                             }
                         }
@@ -346,8 +350,8 @@ public class RestService {
                     }
                     return Integer.compare(hour1, hour2);
                 });
+                List<Time> startTimes = new ArrayList<>();
                 for (String startTime : startTimesByDepartureTypes) {
-                    List<Time> startTimes = new ArrayList<>();
                     String[] timeParts = startTime.split(":");
                     int hour = Integer.parseInt(timeParts[0]);
                     int minute = Integer.parseInt(timeParts[1]);
@@ -355,8 +359,8 @@ public class RestService {
                     time.setHour(hour);
                     time.setMinute(minute);
                     startTimes.add(time);
-                    description.setStartTimes(startTimes);
                 }
+                description.setStartTimes(startTimes);
             }
 
             // 13. ticketType
