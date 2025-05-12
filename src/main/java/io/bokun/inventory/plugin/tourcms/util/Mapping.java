@@ -55,7 +55,7 @@ public class Mapping {
             basicProductInfo.setDescription(productNode.path("shortdesc").asText());
 
             try {
-                String productJson = tourCmsClient.getProduct(basicProductInfo.getId(), true);
+                String productJson = tourCmsClient.getTour(basicProductInfo.getId(), true);
                 JsonNode productDetailNode = MAPPER.readTree(productJson);
                 JsonNode product = productDetailNode.get("tour");
                 basicProductInfo.setPricingCategories(parsePriceCategory(product));

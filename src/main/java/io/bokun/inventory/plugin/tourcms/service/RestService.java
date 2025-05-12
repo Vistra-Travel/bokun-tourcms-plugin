@@ -94,7 +94,7 @@ public class RestService {
                 filterId = filterId.trim();
                 try {
                     AppLogger.info(TAG, String.format("Finding product ID: %s", filterId));
-                    String productJson = tourCmsClient.getProduct(filterId, true);
+                    String productJson = tourCmsClient.getTour(filterId, true);
                     JsonNode productNode = objectMapper.readTree(productJson);
                     JsonNode product = productNode.get("tour");
                     BasicProductInfo basicProductInfo = new BasicProductInfo();
@@ -113,7 +113,7 @@ public class RestService {
             params.put("per_page", 200);
             // params.put("tour_id", "1,2,3");
             try {
-                data = tourCmsClient.getProducts(params);
+                data = tourCmsClient.getTours(params);
             } catch (IOException | NoSuchAlgorithmException | InvalidKeyException exception) {
                 AppLogger.error(TAG, "Couldn't get products", exception);
             }
@@ -159,7 +159,7 @@ public class RestService {
 
         ObjectMapper objectMapper = new ObjectMapper();
         try {
-            String productJson = tourCmsClient.getProduct(id, true);
+            String productJson = tourCmsClient.getTour(id, true);
             JsonNode productNode = objectMapper.readTree(productJson);
             JsonNode product = productNode.get("tour");
 
@@ -175,45 +175,72 @@ public class RestService {
             description.setPricingCategories(Mapping.parsePriceCategory(product));
 
             // 4. rates
-            JsonNode departureTypesNode = product.path("tour_departure_structure").path("departure_types").path("type");
             List<String> startTimesByDepartureTypes = new ArrayList<>();
             List<Rate> rates = new ArrayList<>();
-            if (departureTypesNode.isArray()) {
-                for (JsonNode type : departureTypesNode) {
-                    boolean isActive = type.path("active").asInt() == 1;
-                    if (!isActive) {
-                        continue;
+            Map<String, Object> departuresParams = new HashMap<>();
+            departuresParams.put("id", id);
+            departuresParams.put("per_page", 100);
+            String departuresResponse = tourCmsClient.getTourDepartures(departuresParams);
+            JsonNode departuresNode = objectMapper.readTree(departuresResponse);
+            JsonNode tourDepartureNode = departuresNode.path("tour").path("dates_and_prices").path("departure");
+            List<JsonNode> tourDepartureNodes = tourDepartureNode.isArray() ?
+                    ImmutableList.copyOf(tourDepartureNode) :
+                    ImmutableList.of(tourDepartureNode);
+            if (!tourDepartureNodes.isEmpty()) {
+                for (JsonNode departure : tourDepartureNodes) {
+                    String note = departure.path("note").asText();
+                    String supplierNote = departure.path("supplier_note").asText();
+                    String startTime = departure.path("start_time").asText();
+                    if (rates.stream().noneMatch(r -> r.getId().equals(supplierNote))) {
+                        Rate rate = new Rate();
+                        rate.setId(supplierNote);
+                        rate.setLabel(note.substring(0, 1).toUpperCase() + note.substring(1).toLowerCase());
+                        rates.add(rate);
                     }
-                    JsonNode fieldsNode = type.path("fields").path("field");
-                    List<JsonNode> fields = new ArrayList<>();
-                    if (fieldsNode.isArray()) {
-                        fieldsNode.forEach(fields::add);
-                    } else {
-                        fields.add(fieldsNode);
+                    if (!startTimesByDepartureTypes.contains(startTime)) {
+                        startTimesByDepartureTypes.add(startTime);
                     }
-                    for (JsonNode field : fields) {
-                        String fieldName = field.path("name").asText();
-                        String fieldValue = field.path("value").asText();
-                        if (fieldName != null && fieldValue != null) {
-                            if (fieldName.equals("supplier_note")) {
-                                boolean exists = rates.stream().anyMatch(r -> r.getId().equals(fieldValue));
-                                if (!exists) {
-                                    Rate rate = new Rate();
-                                    rate.setId(fieldValue);
-                                    rate.setLabel(fieldValue.substring(0, 1).toUpperCase() + fieldValue.substring(1).toLowerCase());
-                                    rates.add(rate);
+                }
+            } else {
+                JsonNode departureTypesNode = product.path("tour_departure_structure").path("departure_types").path("type");
+                if (departureTypesNode.isArray()) {
+                    for (JsonNode type : departureTypesNode) {
+                        boolean isActive = type.path("active").asInt() == 1;
+                        if (!isActive) {
+                            continue;
+                        }
+                        JsonNode fieldsNode = type.path("fields").path("field");
+                        List<JsonNode> fields = new ArrayList<>();
+                        if (fieldsNode.isArray()) {
+                            fieldsNode.forEach(fields::add);
+                        } else {
+                            fields.add(fieldsNode);
+                        }
+                        for (JsonNode field : fields) {
+                            String fieldName = field.path("name").asText();
+                            String fieldValue = field.path("value").asText();
+                            if (fieldName != null && fieldValue != null) {
+                                if (fieldName.equals("supplier_note")) {
+                                    boolean exists = rates.stream().anyMatch(r -> r.getId().equals(fieldValue));
+                                    if (!exists) {
+                                        Rate rate = new Rate();
+                                        rate.setId(fieldValue);
+                                        rate.setLabel(fieldValue.substring(0, 1).toUpperCase() + fieldValue.substring(1).toLowerCase());
+                                        rates.add(rate);
+                                    }
                                 }
-                            }
-                            if (fieldName.equals("start_time")) {
-                                boolean exists = startTimesByDepartureTypes.contains(fieldValue);
-                                if (!exists) {
-                                    startTimesByDepartureTypes.add(fieldValue);
+                                if (fieldName.equals("start_time")) {
+                                    boolean exists = startTimesByDepartureTypes.contains(fieldValue);
+                                    if (!exists) {
+                                        startTimesByDepartureTypes.add(fieldValue);
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+
             if (rates.isEmpty()) {
                 rates.addAll(ImmutableList.of(
                         new Rate().id("standard_rate").label("Standard Rate")

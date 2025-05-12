@@ -128,11 +128,11 @@ public class TourCmsClient {
         return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(data);
     }
 
-    public String getProducts() throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        return getProducts(null);
+    public String getTours() throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        return getTours(null);
     }
 
-    public String getProducts(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public String getTours(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         try (Response response = buildRequest("/c/tours/search.xml", "GET", query, null)) {
             if (!response.isSuccessful()) {
                 throw new IOException("Failed to fetch products: " + response.message());
@@ -141,7 +141,7 @@ public class TourCmsClient {
         }
     }
 
-    public String getProductsByDate(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public String getToursByDate(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         try (Response response = buildRequest("/c/tour/datesprices/datesndeals/search.xml", "GET", query, null)) {
             if (!response.isSuccessful()) {
                 throw new IOException("Failed to fetch products by date: " + response.message());
@@ -150,16 +150,25 @@ public class TourCmsClient {
         }
     }
 
-    public String getProduct(String id, boolean showOptions) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public String getTourDepartures(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        try (Response response = buildRequest("/c/tour/datesprices/dep/show.xml", "GET", query, null)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to fetch products by date: " + response.message());
+            }
+            return resultResponse(response);
+        }
+    }
+
+    public String getTour(String id, boolean showOptions) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         Map<String, Object> params = new HashMap<>();
         params.put("id", id);
         if (showOptions) {
             params.put("show_options", 1);
         }
-        return getProduct(params);
+        return getTour(params);
     }
 
-    public String getProduct(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public String getTour(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         try (Response response = buildRequest("/c/tour/show.xml", "GET", query, null)) {
             if (!response.isSuccessful()) {
                 throw new IOException("Failed to fetch products: " + response.message());
@@ -187,7 +196,7 @@ public class TourCmsClient {
         params.put("per_page", 200);
         params.put("tour_id", 48);
         AppLogger.info(TAG, String.format("Get all products: %s - %s - %s", tourCmsClient.apiKey, tourCmsClient.marketplaceId, tourCmsClient.channelId));
-        String products = tourCmsClient.getProducts(params);
+        String products = tourCmsClient.getTours(params);
         AppLogger.info(TAG, String.format(" - Response: %s", products));
     }
 }
