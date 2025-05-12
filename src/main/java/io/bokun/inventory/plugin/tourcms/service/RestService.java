@@ -5,6 +5,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.annotation.*;
 
@@ -201,7 +202,8 @@ public class RestService {
                         startTimesByDepartureTypes.add(startTime);
                     }
                 }
-            } else {
+            }
+            if (rates.isEmpty()) {
                 JsonNode departureTypesNode = product.path("tour_departure_structure").path("departure_types").path("type");
                 if (departureTypesNode.isArray()) {
                     for (JsonNode type : departureTypesNode) {
@@ -240,7 +242,6 @@ public class RestService {
                     }
                 }
             }
-
             if (rates.isEmpty()) {
                 rates.addAll(ImmutableList.of(
                         new Rate().id("standard_rate").label("Standard Rate")
@@ -248,6 +249,9 @@ public class RestService {
             }
             description.setRates(rates);
 
+            startTimesByDepartureTypes = startTimesByDepartureTypes.stream()
+                    .filter(item -> item != null && !item.trim().isEmpty())
+                    .collect(Collectors.toList());
             // 5. bookingType
             if (!startTimesByDepartureTypes.isEmpty()) {
                 description.setBookingType(BookingType.DATE_AND_TIME);
