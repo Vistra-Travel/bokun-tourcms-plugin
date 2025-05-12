@@ -298,14 +298,15 @@ public class RestService {
 
             // 13. ticketType
             JsonNode deliveryFormat = product.path("delivery_formats").path("delivery_format");
+            TicketType ticketType = TicketType.QR_CODE;
             if (!deliveryFormat.isEmpty()) {
                 try {
-                    TicketType ticketType = TicketType.valueOf(deliveryFormat.asText());
-                    description.setTicketType(ticketType);
+                    ticketType = TicketType.valueOf(deliveryFormat.asText());
                 } catch (IllegalArgumentException e) {
-                    description.setTicketType(TicketType.QR_CODE);
+                    AppLogger.error(TAG, String.format("Couldn't parse ticketType: %s", deliveryFormat.asText()), e);
                 }
             }
+            description.setTicketType(ticketType);
 
             // 14. meetingType
             MeetingType meetingType;
@@ -392,6 +393,8 @@ public class RestService {
                 }
             }
             description.setExtras(ImmutableList.copyOf(extras));
+
+            description.setTicketType();
 
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
             exchange.getResponseSender().send(new Gson().toJson(description));
