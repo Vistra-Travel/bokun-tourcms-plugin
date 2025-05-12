@@ -191,7 +191,7 @@ public class RestService {
                     String note = departure.path("note").asText();
                     String supplierNote = departure.path("supplier_note").asText();
                     String startTime = departure.path("start_time").asText();
-                    if (rates.stream().noneMatch(r -> r.getId().equals(supplierNote))) {
+                    if (!note.isEmpty() && !supplierNote.isEmpty() && rates.stream().noneMatch(r -> r.getId().equals(supplierNote))) {
                         Rate rate = new Rate();
                         rate.setId(supplierNote);
                         rate.setLabel(note.substring(0, 1).toUpperCase() + note.substring(1).toLowerCase());
