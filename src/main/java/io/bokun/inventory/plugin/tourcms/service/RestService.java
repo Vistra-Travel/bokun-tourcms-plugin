@@ -190,14 +190,33 @@ public class RestService {
             description.setPricingCategories(prices);
 
             // 4. rates
-            JsonNode ratesNode = product.path("options");
+            JsonNode departureTypesNode = product.path("tour_departure_structure").path("departure_types").path("type");
+            List<String> startTimesByDepartureTypes = new ArrayList<>();
             List<Rate> rates = new ArrayList<>();
-            if (ratesNode.isArray()) {
-                for (JsonNode rateNode : ratesNode) {
-                    Rate rate = new Rate();
-                    rate.setId(rateNode.get("option_id").asText());
-                    rate.setLabel(rateNode.get("option_name").asText());
-                    rates.add(rate);
+            if (departureTypesNode.isArray()) {
+                for (JsonNode rateNode : departureTypesNode) {
+                    JsonNode fields = rateNode.get("fields");
+                    if (fields.isArray()) {
+                        for (JsonNode field : fields) {
+                            if (field.get("name").asText().equals("supplier_note") && field.get("value").isTextual()) {
+                                String rateId = field.get("value").asText();
+                                boolean exists = rates.stream().anyMatch(r -> r.getId().equals(rateId));
+                                if (!exists) {
+                                    Rate rate = new Rate();
+                                    rate.setId(rateId);
+                                    rate.setLabel(rateId.substring(0, 1).toUpperCase() + rateId.substring(1).toLowerCase());
+                                    rates.add(rate);
+                                }
+                            }
+                            if (field.get("name").asText().equals("start_time") && field.get("value").isTextual()) {
+                                String startTime = field.get("value").asText();
+                                boolean exists = startTimesByDepartureTypes.contains(startTime);
+                                if (!exists) {
+                                    startTimesByDepartureTypes.add(startTime);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             description.setRates(rates);
@@ -287,10 +306,29 @@ public class RestService {
 
             // 12. startTimes
             if (description.getBookingType().equals(BookingType.DATE_AND_TIME)) {
-                JsonNode startTime = product.path("start_time");
-                if (startTime.isTextual() && startTime.asText().contains(":")) {
+                JsonNode startTimeNode = product.path("start_time");
+                if (startTimeNode.isTextual() && startTimeNode.asText().contains(":")) {
+                    if (!startTimesByDepartureTypes.contains(startTimeNode.asText())) {
+                        startTimesByDepartureTypes.add(startTimeNode.asText());
+                    }
+                }
+                startTimesByDepartureTypes.sort((time1, time2) -> {
+                    String[] parts1 = time1.split(":");
+                    String[] parts2 = time2.split(":");
+
+                    int hour1 = Integer.parseInt(parts1[0]);
+                    int minute1 = Integer.parseInt(parts1[1]);
+                    int hour2 = Integer.parseInt(parts2[0]);
+                    int minute2 = Integer.parseInt(parts2[1]);
+
+                    if (hour1 == hour2) {
+                        return Integer.compare(minute1, minute2);
+                    }
+                    return Integer.compare(hour1, hour2);
+                });
+                for (String startTime : startTimesByDepartureTypes) {
                     List<Time> startTimes = new ArrayList<>();
-                    String[] timeParts = startTime.asText().split(":");
+                    String[] timeParts = startTime.split(":");
                     int hour = Integer.parseInt(timeParts[0]);
                     int minute = Integer.parseInt(timeParts[1]);
                     Time time = new Time();
