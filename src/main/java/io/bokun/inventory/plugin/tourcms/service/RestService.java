@@ -142,6 +142,8 @@ public class RestService {
             exchange.getResponseSender().send("{'message':'" + msg + "'}");
         }
 
+        AppLogger.info(TAG, String.format("Product ID: %s", id));
+
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             String productJson = tourCmsClient.getProduct(id, true);
@@ -165,28 +167,30 @@ public class RestService {
             List<Rate> rates = new ArrayList<>();
             if (departureTypesNode.isArray()) {
                 for (JsonNode type : departureTypesNode) {
-                    JsonNode fields = type.path("fields").path("field");
-                    AppLogger.info(TAG, String.format("Departure fields: %s", fields));
-                    if (fields.isArray()) {
-                        for (JsonNode field : fields) {
-                            AppLogger.info(TAG, String.format("Departure field: %s", field));
-                            String fieldName = field.path("name").asText();
-                            String fieldValue = field.path("value").asText();
-                            if (fieldName != null && fieldValue != null) {
-                                if (fieldName.equals("supplier_note")) {
-                                    boolean exists = rates.stream().anyMatch(r -> r.getId().equals(fieldValue));
-                                    if (!exists) {
-                                        Rate rate = new Rate();
-                                        rate.setId(fieldValue);
-                                        rate.setLabel(fieldValue.substring(0, 1).toUpperCase() + fieldValue.substring(1).toLowerCase());
-                                        rates.add(rate);
-                                    }
+                    JsonNode fieldsNode = type.path("fields").path("field");
+                    List<JsonNode> fields = new ArrayList<>();
+                    if (fieldsNode.isArray()) {
+                        fieldsNode.forEach(fields::add);
+                    } else {
+                        fields.add(fieldsNode);
+                    }
+                    for (JsonNode field : fields) {
+                        String fieldName = field.path("name").asText();
+                        String fieldValue = field.path("value").asText();
+                        if (fieldName != null && fieldValue != null) {
+                            if (fieldName.equals("supplier_note")) {
+                                boolean exists = rates.stream().anyMatch(r -> r.getId().equals(fieldValue));
+                                if (!exists) {
+                                    Rate rate = new Rate();
+                                    rate.setId(fieldValue);
+                                    rate.setLabel(fieldValue.substring(0, 1).toUpperCase() + fieldValue.substring(1).toLowerCase());
+                                    rates.add(rate);
                                 }
-                                if (fieldName.equals("start_time")) {
-                                    boolean exists = startTimesByDepartureTypes.contains(fieldValue);
-                                    if (!exists) {
-                                        startTimesByDepartureTypes.add(fieldValue);
-                                    }
+                            }
+                            if (fieldName.equals("start_time")) {
+                                boolean exists = startTimesByDepartureTypes.contains(fieldValue);
+                                if (!exists) {
+                                    startTimesByDepartureTypes.add(fieldValue);
                                 }
                             }
                         }
