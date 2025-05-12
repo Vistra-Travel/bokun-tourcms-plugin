@@ -29,7 +29,7 @@ curl -X POST http://localhost:9090/product/search \
 curl -X POST http://localhost:9090/product/getById \
 -H "Content-Type: application/json" \
 -d '{
-   "externalId": "48",
+   "externalId": "134",
    "parameters": [
      {
        "name": "TOURCMS_ACCOUNT_ID",

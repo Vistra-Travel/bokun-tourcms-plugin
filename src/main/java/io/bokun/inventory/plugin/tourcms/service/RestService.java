@@ -16,6 +16,7 @@ import com.google.gson.*;
 import com.google.inject.*;
 import com.squareup.okhttp.*;
 import io.bokun.inventory.plugin.api.rest.*;
+import io.bokun.inventory.plugin.api.rest.Address;
 import io.bokun.inventory.plugin.tourcms.Configuration;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
@@ -166,13 +167,16 @@ public class RestService {
             JsonNode product = productNode.get("tour");
 
             ProductDescription description = new ProductDescription();
+            // 1. id
             description.setId(product.get("tour_id").asText());
+            // 2. name
             description.setName(product.get("tour_name").asText());
+            // 3. description
             description.setDescription(product.get("shortdesc").asText());
 
             JsonNode ratesNode = product.path("new_booking").path("people_selection").path("rate");
-            List<Rate> rates = new ArrayList<>();
             List<PricingCategory> prices = new ArrayList<>();
+            List<Rate> rates = new ArrayList<>();
             if (ratesNode.isArray()) {
                 for (JsonNode rateNode : ratesNode) {
                     Rate rate = new Rate();
@@ -188,47 +192,198 @@ public class RestService {
                     prices.add(pricesCategory);
                 }
             }
-            description.setRates(rates);
+            // 3. pricingCategories
             description.setPricingCategories(prices);
+            // 4. rates
+            description.setRates(rates);
 
+            // 5. bookingType
+            JsonNode dateType = product.path("new_booking").path("date_selection").path("date_type");
+            BookingType bookingType = BookingType.DATE;
+            if (dateType.isTextual()) {
+                try {
+                    bookingType = BookingType.valueOf(dateType.asText());
+                    AppLogger.info(TAG, "Mapped booking type to: " + bookingType);
+                } catch (IllegalArgumentException e) {
+                    AppLogger.warn(TAG, "Unknown booking type found in XML: " + dateType.asText() + ". Defaulting to DATE.");
+                }
+            } else {
+                AppLogger.warn(TAG, "date_type is not textual or missing. Defaulting to DATE.");
+            }
+            description.setBookingType(bookingType);
 
-            JsonNode departureTypes = product.path("tour_departure_structure").path("departure_types").path("type");
-            List<Time> startTimes = new ArrayList<>();
-            if (departureTypes.isArray()) {
-                for (JsonNode departureType : departureTypes) {
-                    JsonNode fields = departureType.path("fields").path("field");
+            // 6. dropoffAvailable
+            JsonNode pickupOnRequest = product.path("pickup_on_request");
+            JsonNode pickupPoints = product.path("pickup_points");
+            boolean dropoffAvailable = pickupOnRequest.asInt() == 1 && pickupPoints.isArray() && !pickupPoints.isEmpty();
+            description.setDropoffAvailable(dropoffAvailable);
 
-                    if (fields.isArray()) {
-                        for (JsonNode field : fields) {
-                            if ("start_time".equals(field.path("name").asText())) {
-                                String[] timeParts = field.path("value").asText().split(":");
-                                int hour = Integer.parseInt(timeParts[0]);
-                                int minute = Integer.parseInt(timeParts[1]);
+            // 7. dropoffPlaces
+            if (dropoffAvailable) {
+                List<PickupDropoffPlace> pickupDropoffPlaces = new ArrayList<>();
 
-                                Time startTime = new Time();
-                                startTime.setHour(hour);
-                                startTime.setMinute(minute);
+                for (JsonNode point : pickupPoints) {
+                    PickupDropoffPlace place = new PickupDropoffPlace();
+                    Address address = new Address();
 
-                                startTimes.add(startTime);
-                            }
+                    // Map thông tin từ XML sang Address
+                    address.setAddressLine1(point.path("address1").asText());
+                    address.setAddressLine2(point.path("address2").asText());
+                    address.setPostalCode(point.path("postcode").asText());
+
+                    // Lấy thông tin city và countryCode từ productNode (XML response)
+                    String city = product.path("location").asText(); // "location" trong XML là tên thành phố
+                    String countryCode = product.path("country").asText(); // "country" trong XML là mã quốc gia
+
+                    address.setCity(city);
+                    address.setCountryCode(countryCode);
+
+                    // Lấy geocode từ XML response
+                    String geocode = point.path("geocode").asText();
+                    if (!geocode.isEmpty()) {
+                        String[] geoParts = geocode.split(",");
+                        if (geoParts.length == 2) {
+                            GeoPoint geoPoint = new GeoPoint();
+                            geoPoint.setLatitude(Double.parseDouble(geoParts[0]));
+                            geoPoint.setLongitude(Double.parseDouble(geoParts[1]));
+                            address.setGeoPoint(geoPoint);
                         }
+                    }
+
+                    // Set title
+                    place.setTitle(point.path("pickup_name").asText());
+                    place.setAddress(address);
+
+                    // Add vào list
+                    pickupDropoffPlaces.add(place);
+                }
+
+                description.setDropoffPlaces(pickupDropoffPlaces);
+                description.setCustomDropoffPlaceAllowed(false);
+            }
+
+            // 8. productCategory
+            description.setProductCategory(ProductCategory.ACTIVITIES);
+
+            // 9. ticketSupport
+            // Accommodation → TICKETS_NOT_REQUIRED
+            // Activities → TICKET_PER_PERSON
+            // Car Rentals → TICKETS_NOT_REQUIRED
+            // Transport → TICKET_PER_BOOKING
+            List<TicketSupport> ticketSupportList = new ArrayList<>();
+            ticketSupportList.add(TicketSupport.TICKET_PER_PERSON);
+            description.setTicketSupport(ticketSupportList);
+
+            // 10. countries
+            description.setCountries(ImmutableList.of(product.get("country").asText()));
+
+            // 11. cities
+            description.setCities(ImmutableList.of(product.get("location").asText()));
+
+            // 12. startTimes
+            if (description.getBookingType().equals(BookingType.DATE_AND_TIME)) {
+                JsonNode startTime = product.path("start_time");
+                if (startTime.isTextual() && startTime.asText().contains(":")) {
+                    List<Time> startTimes = new ArrayList<>();
+                    String[] timeParts = startTime.asText().split(":");
+                    int hour = Integer.parseInt(timeParts[0]);
+                    int minute = Integer.parseInt(timeParts[1]);
+                    Time time = new Time();
+                    time.setHour(hour);
+                    time.setMinute(minute);
+                    startTimes.add(time);
+                    description.setStartTimes(startTimes);
+                }
+            }
+
+            // 13. ticketType
+            JsonNode deliveryFormat = product.path("delivery_formats").path("delivery_format");
+            if (!deliveryFormat.isEmpty()) {
+                try {
+                    TicketType ticketType = TicketType.valueOf(deliveryFormat.asText());
+                    description.setTicketType(ticketType);
+                } catch (IllegalArgumentException e) {
+                    description.setTicketType(TicketType.QR_CODE);
+                }
+            }
+
+            // 14. meetingType
+            MeetingType meetingType;
+            boolean hasPickupPoints = product.path("pickup_points").isArray() && !product.path("pickup_points").isEmpty();
+            boolean hasPickupOnRequest = product.path("pickup_on_request").asInt(0) == 1;
+            if (hasPickupPoints) {
+                if (hasPickupOnRequest) {
+                    meetingType = MeetingType.MEET_ON_LOCATION_OR_PICK_UP;
+                } else {
+                    meetingType = MeetingType.PICK_UP;
+                }
+            } else {
+                meetingType = MeetingType.MEET_ON_LOCATION;
+            }
+            description.setMeetingType(meetingType);
+
+            // 15. customPickupPlaceAllowed
+            boolean customPickupPlaceAllowed = false;
+            // Nếu meetingType là MEET_ON_LOCATION_OR_PICK_UP hoặc PICK_UP thì cần check
+            if (meetingType == MeetingType.MEET_ON_LOCATION_OR_PICK_UP || meetingType == MeetingType.PICK_UP) {
+                customPickupPlaceAllowed = hasPickupOnRequest;
+            }
+            description.setCustomPickupPlaceAllowed(customPickupPlaceAllowed);
+
+            // 16. pickupMinutesBefore
+            Integer pickupMinutesBefore = null;
+            // Chỉ lấy giá trị nếu là MEET_ON_LOCATION_OR_PICK_UP hoặc PICK_UP
+            if (meetingType == MeetingType.MEET_ON_LOCATION_OR_PICK_UP || meetingType == MeetingType.PICK_UP) {
+                JsonNode pickupNode = product.path("pickup_minutes_before");
+                if (pickupNode.isInt()) {
+                    pickupMinutesBefore = pickupNode.asInt();
+                }
+            }
+            description.setPickupMinutesBefore(pickupMinutesBefore);
+
+            // 17. pickupPlaces
+            List<PickupDropoffPlace> pickupDropoffPlaces = new ArrayList<>();
+            if (meetingType == MeetingType.MEET_ON_LOCATION_OR_PICK_UP || meetingType == MeetingType.PICK_UP) {
+                JsonNode pickupPointsNode = product.path("pickup_points");
+                if (pickupPointsNode.isArray()) {
+                    for (JsonNode point : pickupPointsNode) {
+                        PickupDropoffPlace place = new PickupDropoffPlace();
+                        Address address = new Address();
+
+                        // Map các trường thông tin
+                        place.setTitle(point.path("pickup_name").asText());
+
+                        address.setAddressLine1(point.path("address1").asText());
+                        address.setAddressLine2(point.path("address2").asText());
+                        address.setCity(product.path("location").asText());
+                        address.setCountryCode(product.path("country").asText());
+
+                        // Geolocation nếu có
+                        String geocode = point.path("geocode").asText();
+                        if (geocode.contains(",")) {
+                            String[] coordinates = geocode.split(",");
+                            GeoPoint geoPoint = new GeoPoint();
+                            geoPoint.setLatitude(Double.parseDouble(coordinates[0]));
+                            geoPoint.setLongitude(Double.parseDouble(coordinates[1]));
+                            address.setGeoPoint(geoPoint);
+                        }
+
+                        place.setAddress(address);
+                        pickupDropoffPlaces.add(place);
                     }
                 }
             }
-            description.setStartTimes(ImmutableList.copyOf(startTimes));
+            description.setPickupPlaces(pickupDropoffPlaces);
 
-            JsonNode healthAndSafetyItems = product.path("health_and_safety").path("item");
+            // 18. Extra
+            JsonNode alternativeTours = product.path("alternative_tours").path("tour");
             List<Extra> extras = new ArrayList<>();
-            if (healthAndSafetyItems.isArray()) {
-                for (JsonNode item : healthAndSafetyItems) {
-                    String name = item.path("name").asText();
-                    String displayName = item.path("display_name").asText();
-                    String value = item.path("value").asText();
-
+            if (alternativeTours.isArray()) {
+                for (JsonNode item : alternativeTours) {
                     Extra extra = new Extra();
-                    extra.setId(name);
-                    extra.setTitle(displayName);
-                    extra.setDescription(value.equals("NOTSET") ? "Not specified" : value);
+                    extra.setId(item.get("tour_id").asText());
+                    extra.setTitle(item.get("tour_name").asText());
+                    extra.setDescription(item.get("tour_name_long").asText());
                     extra.setOptional(true);                  // Giả định là tất cả đều optional
                     extra.setMaxPerBooking(1);                // Giả định chỉ đặt 1 lần mỗi booking
                     extra.setLimitByPax(false);               // Không giới hạn theo số người
@@ -237,20 +392,6 @@ public class RestService {
                 }
             }
             description.setExtras(ImmutableList.copyOf(extras));
-
-            JsonNode deliveryFormat = product.path("delivery_formats").path("delivery_format");
-            if (!deliveryFormat.isEmpty()) {
-                try {
-                    TicketType ticketType = TicketType.valueOf(deliveryFormat.asText());
-                    description.setTicketType(ticketType);
-                } catch (IllegalArgumentException e) {
-                    AppLogger.error(TAG, "Invalid TicketType: " + deliveryFormat.asText(), e);
-                    description.setTicketType(TicketType.QR_CODE);
-                }
-            }
-
-            description.setMeetingType(MeetingType.MEET_ON_LOCATION);
-            description.setDropoffAvailable(false);
 
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
             exchange.getResponseSender().send(new Gson().toJson(description));

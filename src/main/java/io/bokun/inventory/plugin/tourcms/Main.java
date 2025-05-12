@@ -59,12 +59,8 @@ public class Main {
                                     }
                                 })
                                 .get("/plugin/definition", server.restService::getDefinition)
-
-                                .get("/product/search", new BlockingHandler(server.restService::searchProducts))
                                 .post("/product/search", new BlockingHandler(server.restService::searchProducts))
-
                                 .post("/product/getById", new BlockingHandler(server.restService::getProductById))
-
                                 .post("/product/getAvailable", new BlockingHandler(server.restService::getAvailableProducts))
                                 .post("/product/getAvailability", new BlockingHandler(server.restService::getProductAvailability))
                                 .post("/booking/reserve", new BlockingHandler(server.restService::createReservation))
