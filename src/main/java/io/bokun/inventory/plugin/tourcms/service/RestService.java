@@ -76,7 +76,26 @@ public class RestService {
         exchange.getResponseSender().send(new Gson().toJson(definition));
     }
 
-    private List<BasicProductInfo> mapProductsList(JsonNode node) {
+    private List<PricingCategory> parsePriceCategory(JsonNode node) {
+        JsonNode pricesNode = node.path("new_booking").path("people_selection").path("rate");
+        List<PricingCategory> prices = new ArrayList<>();
+        if (pricesNode.isArray()) {
+            for (JsonNode priceNote : pricesNode) {
+                PricingCategory pricesCategory = new PricingCategory();
+                String label1 = priceNote.path("label_1").asText();
+                String label2 = priceNote.path("label_2").asText();
+                pricesCategory.setId(label1);
+                pricesCategory.setLabel(!label2.isEmpty() ? String.format("%s %s", label1, label2) : label1);
+                pricesCategory.setMinAge(priceNote.get("agerange_min").asInt());
+                pricesCategory.setMaxAge(priceNote.get("agerange_max").asInt());
+                prices.add(pricesCategory);
+            }
+        }
+
+        return prices;
+    }
+
+    private List<BasicProductInfo> mapProductsList(TourCmsClient tourCmsClient, JsonNode node) {
         List<BasicProductInfo> products = new ArrayList<>();
         JsonNode productsList = node.get("tour");
 
@@ -88,19 +107,28 @@ public class RestService {
                 ImmutableList.copyOf(productsList) :
                 ImmutableList.of(productsList);
 
-        for (JsonNode product : productNodes) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        for (JsonNode productNode : productNodes) {
             BasicProductInfo basicProductInfo = new BasicProductInfo();
-            basicProductInfo.setId(product.path("tour_id").asText());
-            basicProductInfo.setName(product.path("tour_name").asText());
-            basicProductInfo.setDescription(product.path("shortdesc").asText());
+            basicProductInfo.setId(productNode.path("tour_id").asText());
+            basicProductInfo.setName(productNode.path("tour_name").asText());
+            basicProductInfo.setDescription(productNode.path("shortdesc").asText());
 
-            PricingCategory fromPrice = new PricingCategory();
-            fromPrice.setId(product.path("tour_id").asText() + "_" + product.path("from_price").asText());
-            fromPrice.setLabel(product.path("from_price_display").asText());
+            try {
+                String productJson = tourCmsClient.getProduct(basicProductInfo.getId(), true);
+                JsonNode productDetailNode = objectMapper.readTree(productJson);
+                JsonNode product = productDetailNode.get("tour");
+                basicProductInfo.setPricingCategories(parsePriceCategory(product));
+            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+                AppLogger.error(TAG, String.format("Failed to get product id: %s", basicProductInfo.getId()), e);
+                PricingCategory fromPrice = new PricingCategory();
+                fromPrice.setId(productNode.path("tour_id").asText() + "_" + productNode.path("from_price").asText());
+                fromPrice.setLabel(productNode.path("from_price_display").asText());
+                basicProductInfo.setPricingCategories(ImmutableList.of(fromPrice));
+            }
 
-            basicProductInfo.setPricingCategories(ImmutableList.of(fromPrice));
-            basicProductInfo.setCities(ImmutableList.of(product.path("location").asText()));
-            basicProductInfo.setCountries(ImmutableList.of(product.path("country").asText()));
+            basicProductInfo.setCities(ImmutableList.of(productNode.path("location").asText()));
+            basicProductInfo.setCountries(ImmutableList.of(productNode.path("country").asText()));
 
             products.add(basicProductInfo);
         }
@@ -147,7 +175,7 @@ public class RestService {
         try {
             JsonNode dataNode = objectMapper.readTree(data);
             totalProducts = dataNode.get("total_tour_count").asInt();
-            products = mapProductsList(dataNode);
+            products = mapProductsList(tourCmsClient, dataNode);
         } catch (JsonProcessingException e) {
             AppLogger.error(TAG, "Couldn't process products", e);
         }
@@ -187,19 +215,7 @@ public class RestService {
             description.setDescription(product.get("shortdesc").asText());
 
             // 3. pricingCategories
-            JsonNode pricesNode = product.path("new_booking").path("people_selection").path("rate");
-            List<PricingCategory> prices = new ArrayList<>();
-            if (pricesNode.isArray()) {
-                for (JsonNode priceNote : pricesNode) {
-                    PricingCategory pricesCategory = new PricingCategory();
-                    pricesCategory.setId(product.get("tour_id").asText() + "_" + priceNote.get("from_price").asText());
-                    pricesCategory.setLabel(priceNote.get("label_1").asText());
-                    pricesCategory.setMinAge(priceNote.get("agerange_min").asInt());
-                    pricesCategory.setMaxAge(priceNote.get("agerange_max").asInt());
-                    prices.add(pricesCategory);
-                }
-            }
-            description.setPricingCategories(prices);
+            description.setPricingCategories(parsePriceCategory(product));
 
             // 4. rates
             JsonNode departureTypesNode = product.path("tour_departure_structure").path("departure_types").path("type");
