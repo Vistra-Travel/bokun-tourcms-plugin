@@ -78,51 +78,64 @@ public class RestService {
     }
 
     public void searchProducts(@Nonnull HttpServerExchange exchange) {
-        boolean isGetRequest = "GET".equalsIgnoreCase(exchange.getRequestMethod().toString());
-        TourCmsClient tourCmsClient = new TourCmsClient();
-
-        String data = "";
-        Map<String, Object> params = new HashMap<>();
-        params.put("per_page", 200);
-
-        if (!isGetRequest) {
-            SearchProductRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), SearchProductRequest.class);
-            AppLogger.info(TAG, String.format("Search products - Request params: %s", request.getParameters()));
-            Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-            tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
-
-            if (configuration.filterIds != null && !configuration.filterIds.isEmpty()) {
-                params.put("tour_id", configuration.filterIds);
-            }
-        }
+        SearchProductRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), SearchProductRequest.class);
+        AppLogger.info(TAG, String.format("Search products - Request params: %s", request.getParameters()));
+        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
         List<BasicProductInfo> products = new ArrayList<>();
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-
-        AppLogger.info(TAG, String.format("Start fetching products from TourCMS: %s - %s - %s - %s", tourCmsClient.marketplaceId, tourCmsClient.channelId, tourCmsClient.apiKey, params));
-        try {
-            data = tourCmsClient.getProducts(params);
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException exception) {
-            AppLogger.error(TAG, "Couldn't get products", exception);
-        }
-
-        if (data == null || data.isEmpty()) {
-            AppLogger.info(TAG, String.format("Empty res data: %s", data));
-            exchange.getResponseSender().send(new Gson().toJson(products));
-            return;
-        }
+        AppLogger.info(TAG, String.format("Start fetching products from TourCMS: %s - %s - %s", tourCmsClient.marketplaceId, tourCmsClient.channelId, tourCmsClient.apiKey));
 
         ObjectMapper objectMapper = new ObjectMapper();
-        int totalProducts = 0;
-        try {
-            JsonNode dataNode = objectMapper.readTree(data);
-            totalProducts = dataNode.get("total_tour_count").asInt();
-            products = Mapping.mapProductsList(tourCmsClient, dataNode);
-        } catch (JsonProcessingException e) {
-            AppLogger.error(TAG, "Couldn't process products", e);
+        if (configuration.filterIds != null && !configuration.filterIds.isEmpty()) {
+            String[] filterIds = configuration.filterIds.split(",");
+            for (String filterId : filterIds) {
+                filterId = filterId.trim();
+                try {
+                    AppLogger.info(TAG, String.format("Finding product ID: %s", filterId));
+                    String productJson = tourCmsClient.getProduct(filterId, true);
+                    JsonNode productNode = objectMapper.readTree(productJson);
+                    JsonNode product = productNode.get("tour");
+                    BasicProductInfo basicProductInfo = new BasicProductInfo();
+                    basicProductInfo.setId(product.get("tour_id").asText());
+                    basicProductInfo.setName(product.get("tour_name").asText());
+                    basicProductInfo.setDescription(product.get("shortdesc").asText());
+                    basicProductInfo.setPricingCategories(Mapping.parsePriceCategory(product));
+                    products.add(basicProductInfo);
+                } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+                    AppLogger.error(TAG, String.format("Couldn't process product ID: %s", filterId), e);
+                }
+            }
+        } else {
+            String data = "";
+            Map<String, Object> params = new HashMap<>();
+            params.put("per_page", 200);
+            // params.put("tour_id", "1,2,3");
+            try {
+                data = tourCmsClient.getProducts(params);
+            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException exception) {
+                AppLogger.error(TAG, "Couldn't get products", exception);
+            }
+
+            if (data == null || data.isEmpty()) {
+                AppLogger.info(TAG, String.format("Empty res data: %s", data));
+                exchange.getResponseSender().send(new Gson().toJson(products));
+                return;
+            }
+
+            int totalProducts = 0;
+            try {
+                JsonNode dataNode = objectMapper.readTree(data);
+                totalProducts = dataNode.get("total_tour_count").asInt();
+                products = Mapping.mapProductsList(tourCmsClient, dataNode);
+            } catch (JsonProcessingException e) {
+                AppLogger.error(TAG, "Couldn't process products", e);
+            }
+
+            AppLogger.info(TAG, String.format(" - Return: %s products", totalProducts));
         }
 
-        AppLogger.info(TAG, String.format(" - Return: %s products", totalProducts));
         exchange.getResponseSender().send(new Gson().toJson(products));
     }
 
@@ -167,6 +180,10 @@ public class RestService {
             List<Rate> rates = new ArrayList<>();
             if (departureTypesNode.isArray()) {
                 for (JsonNode type : departureTypesNode) {
+                    boolean isActive = type.path("active").asInt() == 1;
+                    if (!isActive) {
+                        continue;
+                    }
                     JsonNode fieldsNode = type.path("fields").path("field");
                     List<JsonNode> fields = new ArrayList<>();
                     if (fieldsNode.isArray()) {

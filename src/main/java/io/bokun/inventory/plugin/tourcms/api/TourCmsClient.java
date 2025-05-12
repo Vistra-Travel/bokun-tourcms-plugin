@@ -141,6 +141,15 @@ public class TourCmsClient {
         }
     }
 
+    public String getProductsByDate(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        try (Response response = buildRequest("/c/tour/datesprices/datesndeals/search.xml", "GET", query, null)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to fetch products by date: " + response.message());
+            }
+            return resultResponse(response);
+        }
+    }
+
     public String getProduct(String id, boolean showOptions) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         Map<String, Object> params = new HashMap<>();
         params.put("id", id);
