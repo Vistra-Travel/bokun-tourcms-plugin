@@ -141,9 +141,12 @@ public class TourCmsClient {
         }
     }
 
-    public String getProduct(String id) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public String getProduct(String id, boolean showOptions) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         Map<String, Object> params = new HashMap<>();
         params.put("id", id);
+        if (showOptions) {
+            params.put("show_options", 1);
+        }
         return getProduct(params);
     }
 
@@ -168,7 +171,7 @@ public class TourCmsClient {
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         TourCmsClient tourCmsClient = new TourCmsClient();
 
-        String product = tourCmsClient.getProduct("48");
+        String product = tourCmsClient.getProduct("48", true);
         AppLogger.info(TAG, String.format(" - Response: %s", product));
 
 //        Map<String, Object> params = new HashMap<>();

@@ -162,7 +162,7 @@ public class RestService {
 
         ObjectMapper objectMapper = new ObjectMapper();
         try {
-            String productJson = tourCmsClient.getProduct(id);
+            String productJson = tourCmsClient.getProduct(id, true);
             JsonNode productNode = objectMapper.readTree(productJson);
             JsonNode product = productNode.get("tour");
 
@@ -174,27 +174,32 @@ public class RestService {
             // 3. description
             description.setDescription(product.get("shortdesc").asText());
 
-            JsonNode ratesNode = product.path("new_booking").path("people_selection").path("rate");
+            // 3. pricingCategories
+            JsonNode pricesNode = product.path("new_booking").path("people_selection").path("rate");
             List<PricingCategory> prices = new ArrayList<>();
+            if (pricesNode.isArray()) {
+                for (JsonNode priceNote : pricesNode) {
+                    PricingCategory pricesCategory = new PricingCategory();
+                    pricesCategory.setId(product.get("tour_id").asText() + "_" + priceNote.get("from_price").asText());
+                    pricesCategory.setLabel(priceNote.get("from_price_display").asText());
+                    pricesCategory.setMinAge(priceNote.get("agerange_min").asInt());
+                    pricesCategory.setMaxAge(priceNote.get("agerange_max").asInt());
+                    prices.add(pricesCategory);
+                }
+            }
+            description.setPricingCategories(prices);
+
+            // 4. rates
+            JsonNode ratesNode = product.path("options");
             List<Rate> rates = new ArrayList<>();
             if (ratesNode.isArray()) {
                 for (JsonNode rateNode : ratesNode) {
                     Rate rate = new Rate();
-                    rate.setId(rateNode.path("rate_id").asText());
-                    rate.setLabel(rateNode.path("label_1").asText());
+                    rate.setId(rateNode.get("option_id").asText());
+                    rate.setLabel(rateNode.get("option_name").asText());
                     rates.add(rate);
-
-                    PricingCategory pricesCategory = new PricingCategory();
-                    pricesCategory.setId(product.get("tour_id").asText() + "_" + rateNode.get("from_price").asText());
-                    pricesCategory.setLabel(rateNode.get("from_price_display").asText());
-                    pricesCategory.setMinAge(rateNode.get("agerange_min").asInt());
-                    pricesCategory.setMaxAge(rateNode.get("agerange_max").asInt());
-                    prices.add(pricesCategory);
                 }
             }
-            // 3. pricingCategories
-            description.setPricingCategories(prices);
-            // 4. rates
             description.setRates(rates);
 
             // 5. bookingType
@@ -403,18 +408,15 @@ public class RestService {
         }
     }
 
-    /**
-     * A set of product ids provided, return their availability over given date range ("shallow" call).
-     * This will return a subset of product IDs passed on via ProductAvailabilityRequest.
-     * Note: even though request contains capacity and date range, for a matching product it is enough to have availabilities for *some* dates over
-     * requested period. Subsequent GetProductAvailability request will clarify precise dates and capacities.
-     */
     public void getAvailableProducts(HttpServerExchange exchange) {
         ProductsAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductsAvailabilityRequest.class);
+        AppLogger.info(TAG, String.format("Get products available - Request params: %s", request.getParameters()));
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
-        // At this point you might want to call your external system to do the actual search and return data back.
-        // Code below just provides some mocks.
+        DatePeriod range = request.getRange();
+        long requiredCapacity = request.getRequiredCapacity();
+        List<String> externalProductIds = request.getExternalProductIds();
 
         if (!request.getExternalProductIds().contains("123")) {
             throw new IllegalStateException("Previous call only returned product having id=123");
@@ -428,16 +430,14 @@ public class RestService {
         exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of(response)));
     }
 
-    /**
-     * Get availability of a particular product over a date range. This request should follow GetAvailableProducts and provide more details on
-     * precise dates/times for each product as well as capacity for each date. This call, however, is for a single product only (as opposed to
-     * {@link #getAvailableProducts(HttpServerExchange)} which checks many products but only does a basic shallow check.
-     */
     public void getProductAvailability(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "In ::getProductAvailability");
-
         ProductAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductAvailabilityRequest.class);
+        AppLogger.info(TAG, String.format("Get product availability - Request params: %s", request.getParameters()));
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+
+        DatePeriod range = request.getRange();
+        String productId = request.getProductId();
 
         // At this point you might want to call your external system to do the actual search and return data back.
         // Code below just provides some mocks.
