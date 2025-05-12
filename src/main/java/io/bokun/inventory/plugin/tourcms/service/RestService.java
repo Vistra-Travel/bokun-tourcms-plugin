@@ -194,8 +194,8 @@ public class RestService {
             List<String> startTimesByDepartureTypes = new ArrayList<>();
             List<Rate> rates = new ArrayList<>();
             if (departureTypesNode.isArray()) {
-                for (JsonNode rateNode : departureTypesNode) {
-                    JsonNode fields = rateNode.get("fields");
+                for (JsonNode type : departureTypesNode) {
+                    JsonNode fields = type.path("fields").path("field");
                     if (fields.isArray()) {
                         for (JsonNode field : fields) {
                             if (field.get("name").asText().equals("supplier_note") && field.get("value").isTextual()) {
@@ -222,19 +222,23 @@ public class RestService {
             description.setRates(rates);
 
             // 5. bookingType
-            JsonNode dateType = product.path("new_booking").path("date_selection").path("date_type");
-            BookingType bookingType = BookingType.DATE;
-            if (dateType.isTextual()) {
-                try {
-                    bookingType = BookingType.valueOf(dateType.asText());
-                    AppLogger.info(TAG, "Mapped booking type to: " + bookingType);
-                } catch (IllegalArgumentException e) {
-                    AppLogger.warn(TAG, "Unknown booking type found in XML: " + dateType.asText() + ". Defaulting to DATE.");
-                }
+            if (!startTimesByDepartureTypes.isEmpty()) {
+                description.setBookingType(BookingType.DATE_AND_TIME);
             } else {
-                AppLogger.warn(TAG, "date_type is not textual or missing. Defaulting to DATE.");
+                JsonNode dateType = product.path("new_booking").path("date_selection").path("date_type");
+                BookingType bookingType = BookingType.DATE;
+                if (dateType.isTextual()) {
+                    try {
+                        bookingType = BookingType.valueOf(dateType.asText());
+                        AppLogger.info(TAG, "Mapped booking type to: " + bookingType);
+                    } catch (IllegalArgumentException e) {
+                        AppLogger.warn(TAG, "Unknown booking type found in XML: " + dateType.asText() + ". Defaulting to DATE.");
+                    }
+                } else {
+                    AppLogger.warn(TAG, "date_type is not textual or missing. Defaulting to DATE.");
+                }
+                description.setBookingType(bookingType);
             }
-            description.setBookingType(bookingType);
 
             // 6. dropoffAvailable
             JsonNode pickupOnRequest = product.path("pickup_on_request");
