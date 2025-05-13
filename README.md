@@ -46,3 +46,37 @@ curl -X POST http://localhost:9090/product/getById \
    ]
  }'
 ```
+
+```
+curl -X POST http://localhost:9090/product/getAvailability \
+-H "Content-Type: application/json" \
+-d '{
+   "range": {
+     "from": {
+       "year": 2025,
+       "month": 5,
+       "day": 14
+     },
+     "to": {
+       "year": 2025,
+       "month": 5,
+       "day": 15
+     }
+   },
+   "productId": "3",
+   "parameters": [
+     {
+       "name": "TOURCMS_ACCOUNT_ID",
+       "value": "58193"
+     },
+     {
+       "name": "TOURCMS_CHANNEL_ID",
+       "value": "3930"
+     },
+     {
+       "name": "TOURCMS_PRIVATE_KEY",
+       "value": "Q3NujxeAumuTvJbWF"
+     }
+   ]
+ }'
+```

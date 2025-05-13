@@ -1,6 +1,7 @@
 package io.bokun.inventory.plugin.tourcms.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static io.bokun.inventory.plugin.api.rest.PluginCapability.AVAILABILITY;
 import static io.undertow.util.Headers.CONTENT_TYPE;
@@ -78,8 +80,11 @@ public class RestService {
     }
 
     public void searchProducts(@Nonnull HttpServerExchange exchange) {
+        AppLogger.info(TAG, "Search products!");
         SearchProductRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), SearchProductRequest.class);
-        AppLogger.info(TAG, String.format("Search products - Request params: %s", request.getParameters()));
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
+
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
         TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
@@ -87,7 +92,6 @@ public class RestService {
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         AppLogger.info(TAG, String.format("Start fetching products from TourCMS: %s - %s - %s", tourCmsClient.marketplaceId, tourCmsClient.channelId, tourCmsClient.apiKey));
 
-        ObjectMapper objectMapper = new ObjectMapper();
         /*if (configuration.filterIds != null && !configuration.filterIds.isEmpty()) {
             String[] filterIds = configuration.filterIds.split(",");
             for (String filterId : filterIds) {
@@ -130,7 +134,7 @@ public class RestService {
 
         int totalProducts = 0;
         try {
-            JsonNode dataNode = objectMapper.readTree(data);
+            JsonNode dataNode = Mapping.MAPPER.readTree(data);
             totalProducts = dataNode.get("total_tour_count").asInt();
             products = Mapping.mapProductsList(tourCmsClient, dataNode);
         } catch (JsonProcessingException e) {
@@ -142,10 +146,10 @@ public class RestService {
     }
 
     public void getProductById(HttpServerExchange exchange) {
-        ObjectMapper objectMapper = new ObjectMapper();
+        AppLogger.info(TAG, "Get product by id!");
         GetProductByIdRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), GetProductByIdRequest.class);
-
-        AppLogger.info(TAG, String.format("Get product by id - Request params: %s", request.getParameters()));
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
         TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
@@ -162,9 +166,9 @@ public class RestService {
 
         try {
             String productJson = tourCmsClient.getTour(id, true);
-            AppLogger.info(TAG, String.format("TourCMS - getTour ID %s JSON: %s", id, objectMapper.writeValueAsString(objectMapper.readTree(productJson))));
+            AppLogger.info(TAG, String.format("TourCMS - getTour ID %s JSON: %s", id, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(productJson))));
 
-            JsonNode productNode = objectMapper.readTree(productJson);
+            JsonNode productNode = Mapping.MAPPER.readTree(productJson);
             JsonNode product = productNode.get("tour");
 
             ProductDescription description = new ProductDescription();
@@ -186,8 +190,8 @@ public class RestService {
             departuresParams.put("id", id);
             departuresParams.put("per_page", 20);
             String departuresResponse = tourCmsClient.getTourDepartures(departuresParams);
-            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, objectMapper.writeValueAsString(objectMapper.readTree(departuresResponse))));
-            JsonNode departuresNode = objectMapper.readTree(departuresResponse);
+            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(departuresResponse))));
+            JsonNode departuresNode = Mapping.MAPPER.readTree(departuresResponse);
             JsonNode tourDepartureNode = departuresNode.path("tour").path("dates_and_prices").path("departure");
             List<JsonNode> tourDepartureNodes = tourDepartureNode.isArray() ?
                     ImmutableList.copyOf(tourDepartureNode) :
@@ -266,8 +270,8 @@ public class RestService {
             description.setRates(rates);
 
             // 3.1. Check pricingCategories apply backupPriceCategories
-            if (description.getPricingCategories().isEmpty()) {
-                AppLogger.info(TAG, String.format("Current price category is empty: Product ID %s -> Apply backup price category!", id));
+            if (!backupPriceCategories.isEmpty()) {
+                AppLogger.info(TAG, String.format(" - Product ID %s -> Apply backup price category!", id));
                 description.setPricingCategories(backupPriceCategories);
             }
 
@@ -496,7 +500,9 @@ public class RestService {
             description.setExtras(ImmutableList.copyOf(extras));
 
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-            exchange.getResponseSender().send(new Gson().toJson(description));
+            String response = new Gson().toJson(description);
+            AppLogger.info(TAG, String.format("-> Response: %s", response));
+            exchange.getResponseSender().send(response);
         } catch (IOException | NoSuchAlgorithmException | InvalidKeyException exception) {
             AppLogger.error(TAG, "Couldn't get product", exception);
             exchange.setStatusCode(500);
@@ -505,87 +511,212 @@ public class RestService {
     }
 
     public void getAvailableProducts(HttpServerExchange exchange) {
+        AppLogger.info(TAG, "Get products available!");
         ProductsAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductsAvailabilityRequest.class);
-        AppLogger.info(TAG, String.format("Get products available - Request params: %s", request.getParameters()));
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
+
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
         TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
         DatePeriod range = request.getRange();
         long requiredCapacity = request.getRequiredCapacity();
         List<String> externalProductIds = request.getExternalProductIds();
+        String startDate = String.format("%04d-%02d-%02d", range.getFrom().getYear(), range.getFrom().getMonth(), range.getFrom().getDay());
+        String endDate = String.format("%04d-%02d-%02d", range.getTo().getYear(), range.getTo().getMonth(), range.getTo().getDay());
+        AppLogger.info(TAG, String.format(" - Extra params: [%s ~ %s] | %s | %s", startDate, endDate, requiredCapacity, externalProductIds));
 
-        if (!request.getExternalProductIds().contains("123")) {
-            throw new IllegalStateException("Previous call only returned product having id=123");
-        }
+        List<String> filterIds = (configuration.filterIds != null && !configuration.filterIds.isEmpty())
+                ? Arrays.asList(configuration.filterIds.split(","))
+                : new ArrayList<>();
 
-        ProductsAvailabilityResponse response = new ProductsAvailabilityResponse();
-        response.setActualCheckDone(true);
-        response.setProductId("123");
+        List<String> allowExternalProductIds = externalProductIds.stream()
+                .filter(id -> filterIds.isEmpty() || filterIds.contains(id))
+                .collect(Collectors.toList());
+
+        List<String> notAllowExternalProductIds = externalProductIds.stream()
+                .filter(id -> !allowExternalProductIds.contains(id))
+                .collect(Collectors.toList());
+
+        List<ProductsAvailabilityResponse> productsAvailabilityResponses = new ArrayList<>();
+
+        notAllowExternalProductIds.forEach(productId -> {
+            productsAvailabilityResponses.add(new ProductsAvailabilityResponse()
+                    .productId(productId)
+                    .actualCheckDone(false)
+            );
+        });
+
+        allowExternalProductIds.forEach(productId -> {
+            Map<String, Object> params = new HashMap<>();
+            params.put("id", productId);
+            params.put("distinct_start_dates", 1);
+            params.put("startdate_start", startDate);
+            params.put("startdate_end", endDate);
+
+            try {
+                String toursResponse = tourCmsClient.getToursByDates(params);
+                AppLogger.info(TAG, String.format("TourCMS - getToursByDates %s JSON: %s", params, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(toursResponse))));
+
+                JsonNode datesNode = Mapping.MAPPER.readTree(toursResponse)
+                        .path("dates_and_prices")
+                        .path("date");
+
+                long minCapacity = StreamSupport.stream(datesNode.spliterator(), false)
+                        .filter(date -> "OPEN".equals(date.path("status").asText()))
+                        .mapToLong(date -> date.path("spaces_remaining").asLong())
+                        .min()
+                        .orElse(0);
+
+                AppLogger.info(TAG, String.format(" - Tour ID: %s -> Min Capacity Found: %d", productId, minCapacity));
+
+                productsAvailabilityResponses.add(new ProductsAvailabilityResponse()
+                        .productId(productId)
+                        .actualCheckDone(requiredCapacity <= minCapacity)
+                );
+
+            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+                AppLogger.error(TAG, String.format("Couldn't get tour by dates: %s", params), e);
+                productsAvailabilityResponses.add(new ProductsAvailabilityResponse()
+                        .productId(productId)
+                        .actualCheckDone(false)
+                );
+            }
+        });
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of(response)));
+        String response = new Gson().toJson(productsAvailabilityResponses);
+        AppLogger.info(TAG, String.format("-> Response: %s", response));
+        exchange.getResponseSender().send(response);
     }
 
     public void getProductAvailability(HttpServerExchange exchange) {
+        AppLogger.info(TAG, "Get product availability!");
         ProductAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductAvailabilityRequest.class);
-        AppLogger.info(TAG, String.format("Get product availability - Request params: %s", request.getParameters()));
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
+
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
         TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
         DatePeriod range = request.getRange();
         String productId = request.getProductId();
+        String startDateStart = String.format("%04d-%02d-%02d", range.getFrom().getYear(), range.getFrom().getMonth(), range.getFrom().getDay());
+        String startDateEnd = String.format("%04d-%02d-%02d", range.getTo().getYear(), range.getTo().getMonth(), range.getTo().getDay());
+        AppLogger.info(TAG, String.format(" - Extra params: [%s ~ %s] | %s", startDateStart, startDateEnd, productId));
 
-        // At this point you might want to call your external system to do the actual search and return data back.
-        // Code below just provides some mocks.
+        List<ProductAvailabilityWithRatesResponse> productAvailabilityWithRatesResponses = new ArrayList<>();
 
-        List<ProductAvailabilityWithRatesResponse> l = new ArrayList<>();
-        for (int i = 0; i <= 1; i++) {
-            ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();
-            response.setCapacity(100);
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", productId);
+        params.put("start_date_start", startDateStart);
+        params.put("start_date_end", startDateEnd);
 
-            LocalDate date = LocalDate.now().plusDays(i);
-            DateYMD tomorrowDate = new DateYMD();
-            tomorrowDate.setYear(date.getYear());
-            tomorrowDate.setMonth(date.getMonthValue());
-            tomorrowDate.setDay(date.getDayOfMonth());
-            response.setDate(tomorrowDate);
+        try {
+            String tourResponse = tourCmsClient.getTourDepartures(params);
+            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", params, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(tourResponse))));
 
-            Time tomorrowTime = new Time();
-            tomorrowTime.setHour(13);
-            tomorrowTime.setMinute(00);
-            response.setTime(tomorrowTime);
+            JsonNode tourNode = Mapping.MAPPER.readTree(tourResponse).path("tour");
+            if (!tourNode.isMissingNode()) {
+                JsonNode departuresNode = tourNode.path("dates_and_prices").path("departure");
 
-            RateWithPrice rate = new RateWithPrice();
-            rate.setRateId("standard");
+                List<JsonNode> departuresNodeList = departuresNode.isArray() ?
+                        ImmutableList.copyOf(departuresNode) :
+                        ImmutableList.of(departuresNode);
 
-            PricePerPerson pricePerPerson = new PricePerPerson();
-            pricePerPerson.setPricingCategoryWithPrice(new ArrayList<>());
-            {
-                PricingCategoryWithPrice adultCategoryPrice = new PricingCategoryWithPrice();
-                adultCategoryPrice.setPricingCategoryId("ADT");
-                Price adultPrice = new Price();
-                adultPrice.setAmount("100");
-                adultPrice.setCurrency("EUR");
-                adultCategoryPrice.setPrice(adultPrice);
-                pricePerPerson.getPricingCategoryWithPrice().add(adultCategoryPrice);
+                for (JsonNode departure : departuresNodeList) {
+                    String startDate = departure.path("start_date").isTextual() ? departure.path("start_date").asText() : null;
+                    String startTime = departure.path("start_time").isTextual() ? departure.path("start_time").asText() : null;
+                    int capacity = departure.path("spaces_remaining").isNumber() ? departure.path("spaces_remaining").asInt() : 0;
+
+                    if (startDate != null && startTime != null) {
+                        ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();
+
+                        // Set Capacity
+                        response.setCapacity(capacity);
+
+                        // Set Date
+                        LocalDate date = LocalDate.parse(startDate);
+                        DateYMD tourDate = new DateYMD();
+                        tourDate.setYear(date.getYear());
+                        tourDate.setMonth(date.getMonthValue());
+                        tourDate.setDay(date.getDayOfMonth());
+                        response.setDate(tourDate);
+
+                        // Set Time
+                        if (startTime.contains(":")) {
+                            String[] timeParts = startTime.split(":");
+                            Time time = new Time();
+                            time.setHour(Integer.parseInt(timeParts[0]));
+                            time.setMinute(Integer.parseInt(timeParts[1]));
+                            response.setTime(time);
+                        }
+
+                        // Khởi tạo RateWithPrice
+                        List<RateWithPrice> rateWithPrices = new ArrayList<>();
+
+                        // Main Price
+                        JsonNode mainPriceNode = departure.path("main_price");
+                        if (!mainPriceNode.isMissingNode()) {
+                            RateWithPrice mainRate = new RateWithPrice();
+                            mainRate.setRateId(mainPriceNode.path("rate_id").asText());
+
+                            PricePerPerson pricePerPerson = new PricePerPerson();
+                            pricePerPerson.setPricingCategoryWithPrice(new ArrayList<>());
+
+                            PricingCategoryWithPrice mainCategoryPrice = new PricingCategoryWithPrice();
+                            mainCategoryPrice.setPricingCategoryId(mainPriceNode.path("rate_id").asText());
+                            Price mainPrice = new Price();
+                            mainPrice.setAmount(mainPriceNode.path("rate_price").asText());
+                            mainPrice.setCurrency(tourNode.path("sale_currency").asText());
+                            mainCategoryPrice.setPrice(mainPrice);
+
+                            pricePerPerson.getPricingCategoryWithPrice().add(mainCategoryPrice);
+                            mainRate.setPricePerPerson(pricePerPerson);
+
+                            rateWithPrices.add(mainRate);
+                        }
+
+                        // Extra Rates
+                        JsonNode extraRatesNode = departure.path("extra_rates").path("rate");
+                        if (extraRatesNode.isArray()) {
+                            for (JsonNode extraRateNode : extraRatesNode) {
+                                if (!extraRateNode.isMissingNode()) {
+                                    RateWithPrice extraRate = new RateWithPrice();
+                                    extraRate.setRateId(extraRateNode.path("rate_id").asText());
+
+                                    PricePerPerson pricePerPerson = new PricePerPerson();
+                                    pricePerPerson.setPricingCategoryWithPrice(new ArrayList<>());
+
+                                    PricingCategoryWithPrice extraCategoryPrice = new PricingCategoryWithPrice();
+                                    extraCategoryPrice.setPricingCategoryId(extraRateNode.path("rate_id").asText());
+                                    Price extraPrice = new Price();
+                                    extraPrice.setAmount(extraRateNode.path("rate_price").asText());
+                                    extraPrice.setCurrency(tourNode.path("sale_currency").asText());
+                                    extraCategoryPrice.setPrice(extraPrice);
+
+                                    pricePerPerson.getPricingCategoryWithPrice().add(extraCategoryPrice);
+                                    extraRate.setPricePerPerson(pricePerPerson);
+
+                                    rateWithPrices.add(extraRate);
+                                }
+                            }
+                        }
+
+                        response.setRates(rateWithPrices);
+
+                        productAvailabilityWithRatesResponses.add(response);
+                    }
+                }
             }
-            {
-                PricingCategoryWithPrice childCategoryPrice = new PricingCategoryWithPrice();
-                childCategoryPrice.setPricingCategoryId("CHD");
-                Price childPrice = new Price();
-                childPrice.setAmount("10");
-                childPrice.setCurrency("EUR");
-                childCategoryPrice.setPrice(childPrice);
-                pricePerPerson.getPricingCategoryWithPrice().add(childCategoryPrice);
-            }
-            rate.setPricePerPerson(pricePerPerson);
-            response.setRates(ImmutableList.of(rate));
-            l.add(response);
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            AppLogger.error(TAG, String.format("Couldn't get tour by dates: %s", params), e);
         }
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(l));
-        AppLogger.info(TAG, "Out ::getProductAvailability");
+        String response = new Gson().toJson(productAvailabilityWithRatesResponses);
+        AppLogger.info(TAG, String.format("-> Response: %s", response));
+        exchange.getResponseSender().send(response);
     }
 
     /**
