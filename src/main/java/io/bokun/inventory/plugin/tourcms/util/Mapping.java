@@ -17,7 +17,7 @@ public class Mapping {
     private static final String TAG = Mapping.class.getSimpleName();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public static List<PricingCategory> parsePriceCategory(JsonNode node) {
+    public static List<PricingCategory> parsePriceCategoryFromTourNode(JsonNode node) {
         JsonNode pricesNode = node.path("new_booking").path("people_selection").path("rate");
         List<PricingCategory> prices = new ArrayList<>();
         if (pricesNode.isArray()) {
@@ -29,6 +29,27 @@ public class Mapping {
                 pricesCategory.setLabel(!label2.isEmpty() ? String.format("%s %s", label1, label2) : label1);
                 pricesCategory.setMinAge(priceNote.get("agerange_min").asInt());
                 pricesCategory.setMaxAge(priceNote.get("agerange_max").asInt());
+                prices.add(pricesCategory);
+            }
+        }
+
+        return prices;
+    }
+
+    public static List<PricingCategory> parsePriceCategoryFromNodeList(List<JsonNode> arrayNode) {
+        List<PricingCategory> prices = new ArrayList<>();
+        for (JsonNode priceNote : arrayNode) {
+            String rateId = priceNote.path("rate_id").asText();
+            String rateName = priceNote.path("rate_name").asText();
+            int minAge = !priceNote.path("agerange_min").isEmpty() ? priceNote.path("agerange_min").asInt() : 0;
+            int maxAge = !priceNote.path("agerange_max").isEmpty() ? priceNote.path("agerange_max").asInt() : 0;
+
+            if (prices.stream().noneMatch(p -> p.getId().equals(rateId))) {
+                PricingCategory pricesCategory = new PricingCategory();
+                pricesCategory.setId(rateId);
+                pricesCategory.setLabel(rateName);
+                pricesCategory.setMinAge(minAge);
+                pricesCategory.setMaxAge(maxAge);
                 prices.add(pricesCategory);
             }
         }
@@ -58,7 +79,7 @@ public class Mapping {
                 String productJson = tourCmsClient.getTour(basicProductInfo.getId(), true);
                 JsonNode productDetailNode = MAPPER.readTree(productJson);
                 JsonNode product = productDetailNode.get("tour");
-                basicProductInfo.setPricingCategories(parsePriceCategory(product));
+                basicProductInfo.setPricingCategories(parsePriceCategoryFromTourNode(product));
             } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
                 AppLogger.error(TAG, String.format("Failed to get product id: %s", basicProductInfo.getId()), e);
                 PricingCategory fromPrice = new PricingCategory();

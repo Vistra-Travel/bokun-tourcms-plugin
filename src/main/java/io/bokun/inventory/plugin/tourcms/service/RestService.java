@@ -1,32 +1,31 @@
 package io.bokun.inventory.plugin.tourcms.service;
 
-import java.io.*;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.time.*;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import javax.annotation.*;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.*;
-import com.google.gson.*;
-import com.google.inject.*;
-import com.squareup.okhttp.*;
+import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
+import com.google.inject.Inject;
+import com.squareup.okhttp.OkHttpClient;
 import io.bokun.inventory.plugin.api.rest.*;
-import io.bokun.inventory.plugin.api.rest.Address;
 import io.bokun.inventory.plugin.tourcms.Configuration;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 import io.bokun.inventory.plugin.tourcms.util.Mapping;
-import io.undertow.server.*;
+import io.undertow.server.HttpServerExchange;
 
-import static io.bokun.inventory.plugin.api.rest.PluginCapability.*;
-import static io.undertow.util.Headers.*;
-import static java.util.concurrent.TimeUnit.*;
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static io.bokun.inventory.plugin.api.rest.PluginCapability.AVAILABILITY;
+import static io.undertow.util.Headers.CONTENT_TYPE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class RestService {
 
@@ -89,7 +88,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("Start fetching products from TourCMS: %s - %s - %s", tourCmsClient.marketplaceId, tourCmsClient.channelId, tourCmsClient.apiKey));
 
         ObjectMapper objectMapper = new ObjectMapper();
-        if (configuration.filterIds != null && !configuration.filterIds.isEmpty()) {
+        /*if (configuration.filterIds != null && !configuration.filterIds.isEmpty()) {
             String[] filterIds = configuration.filterIds.split(",");
             for (String filterId : filterIds) {
                 filterId = filterId.trim();
@@ -108,39 +107,42 @@ public class RestService {
                     AppLogger.error(TAG, String.format("Couldn't process product ID: %s", filterId), e);
                 }
             }
-        } else {
-            String data = "";
-            Map<String, Object> params = new HashMap<>();
-            params.put("per_page", 200);
-            // params.put("tour_id", "1,2,3");
-            try {
-                data = tourCmsClient.getTours(params);
-            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException exception) {
-                AppLogger.error(TAG, "Couldn't get products", exception);
-            }
+        }*/
 
-            if (data == null || data.isEmpty()) {
-                AppLogger.info(TAG, String.format("Empty res data: %s", data));
-                exchange.getResponseSender().send(new Gson().toJson(products));
-                return;
-            }
+        String data = "";
+        Map<String, Object> params = new HashMap<>();
+        params.put("per_page", 200);
 
-            int totalProducts = 0;
-            try {
-                JsonNode dataNode = objectMapper.readTree(data);
-                totalProducts = dataNode.get("total_tour_count").asInt();
-                products = Mapping.mapProductsList(tourCmsClient, dataNode);
-            } catch (JsonProcessingException e) {
-                AppLogger.error(TAG, "Couldn't process products", e);
-            }
-
-            AppLogger.info(TAG, String.format(" - Return: %s products", totalProducts));
+        if (configuration.filterIds != null && !configuration.filterIds.isEmpty()) {
+            params.put("tour_id", configuration.filterIds);
+        }
+        try {
+            data = tourCmsClient.getTours(params);
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException exception) {
+            AppLogger.error(TAG, "Couldn't get products", exception);
         }
 
+        if (data == null || data.isEmpty()) {
+            AppLogger.info(TAG, String.format("Empty res data: %s", data));
+            exchange.getResponseSender().send(new Gson().toJson(products));
+            return;
+        }
+
+        int totalProducts = 0;
+        try {
+            JsonNode dataNode = objectMapper.readTree(data);
+            totalProducts = dataNode.get("total_tour_count").asInt();
+            products = Mapping.mapProductsList(tourCmsClient, dataNode);
+        } catch (JsonProcessingException e) {
+            AppLogger.error(TAG, "Couldn't process products", e);
+        }
+
+        AppLogger.info(TAG, String.format(" - Return: %s products", totalProducts));
         exchange.getResponseSender().send(new Gson().toJson(products));
     }
 
     public void getProductById(HttpServerExchange exchange) {
+        ObjectMapper objectMapper = new ObjectMapper();
         GetProductByIdRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), GetProductByIdRequest.class);
 
         AppLogger.info(TAG, String.format("Get product by id - Request params: %s", request.getParameters()));
@@ -158,9 +160,10 @@ public class RestService {
 
         AppLogger.info(TAG, String.format("Product ID: %s", id));
 
-        ObjectMapper objectMapper = new ObjectMapper();
         try {
             String productJson = tourCmsClient.getTour(id, true);
+            AppLogger.info(TAG, String.format("TourCMS - getTour ID %s JSON: %s", id, objectMapper.writeValueAsString(objectMapper.readTree(productJson))));
+
             JsonNode productNode = objectMapper.readTree(productJson);
             JsonNode product = productNode.get("tour");
 
@@ -173,15 +176,17 @@ public class RestService {
             description.setDescription(product.get("shortdesc").asText());
 
             // 3. pricingCategories
-            description.setPricingCategories(Mapping.parsePriceCategory(product));
+            description.setPricingCategories(Mapping.parsePriceCategoryFromTourNode(product));
 
             // 4. rates
             List<String> startTimesByDepartureTypes = new ArrayList<>();
             List<Rate> rates = new ArrayList<>();
             Map<String, Object> departuresParams = new HashMap<>();
+            List<PricingCategory> backupPriceCategories = new ArrayList<>();
             departuresParams.put("id", id);
-            departuresParams.put("per_page", 100);
+            departuresParams.put("per_page", 20);
             String departuresResponse = tourCmsClient.getTourDepartures(departuresParams);
+            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, objectMapper.writeValueAsString(objectMapper.readTree(departuresResponse))));
             JsonNode departuresNode = objectMapper.readTree(departuresResponse);
             JsonNode tourDepartureNode = departuresNode.path("tour").path("dates_and_prices").path("departure");
             List<JsonNode> tourDepartureNodes = tourDepartureNode.isArray() ?
@@ -201,6 +206,17 @@ public class RestService {
                     if (!startTimesByDepartureTypes.contains(startTime)) {
                         startTimesByDepartureTypes.add(startTime);
                     }
+
+                    JsonNode mainPriceNode = departure.path("main_price");
+                    JsonNode extraPriceNode = departure.path("extra_rates").path("rate");
+                    List<JsonNode> mainPriceNodeArray = mainPriceNode.isArray() ?
+                            new ArrayList<>(ImmutableList.copyOf(mainPriceNode)) :
+                            new ArrayList<>(ImmutableList.of(mainPriceNode));
+                    List<JsonNode> extraPriceNodeArray = extraPriceNode.isArray() ?
+                            ImmutableList.copyOf(extraPriceNode) :
+                            ImmutableList.of(extraPriceNode);
+                    mainPriceNodeArray.addAll(extraPriceNodeArray);
+                    backupPriceCategories = Mapping.parsePriceCategoryFromNodeList(mainPriceNodeArray);
                 }
             }
             if (rates.isEmpty()) {
@@ -248,6 +264,12 @@ public class RestService {
                 ));
             }
             description.setRates(rates);
+
+            // 3.1. Check pricingCategories apply backupPriceCategories
+            if (description.getPricingCategories().isEmpty()) {
+                AppLogger.info(TAG, String.format("Current price category is empty: Product ID %s -> Apply backup price category!", id));
+                description.setPricingCategories(backupPriceCategories);
+            }
 
             startTimesByDepartureTypes = startTimesByDepartureTypes.stream()
                     .filter(item -> item != null && !item.trim().isEmpty())
@@ -453,14 +475,17 @@ public class RestService {
             description.setPickupPlaces(pickupDropoffPlaces);
 
             // 18. Extra
-            JsonNode alternativeTours = product.path("alternative_tours").path("tour");
             List<Extra> extras = new ArrayList<>();
-            if (alternativeTours.isArray()) {
-                for (JsonNode item : alternativeTours) {
+            JsonNode alternativeTours = product.path("options").path("option");
+            if (!alternativeTours.isEmpty()) {
+                List<JsonNode> alternativeToursList = alternativeTours.isArray() ?
+                        ImmutableList.copyOf(alternativeTours) :
+                        ImmutableList.of(alternativeTours);
+                for (JsonNode item : alternativeToursList) {
                     Extra extra = new Extra();
-                    extra.setId(item.get("tour_id").asText());
-                    extra.setTitle(item.get("tour_name").asText());
-                    extra.setDescription(item.get("tour_name_long").asText());
+                    extra.setId(item.get("option_id").asText());
+                    extra.setTitle(item.get("option_name").asText());
+                    extra.setDescription(item.get("short_description").asText());
                     extra.setOptional(true);                  // Giả định là tất cả đều optional
                     extra.setMaxPerBooking(1);                // Giả định chỉ đặt 1 lần mỗi booking
                     extra.setLimitByPax(false);               // Không giới hạn theo số người
@@ -514,7 +539,7 @@ public class RestService {
         // Code below just provides some mocks.
 
         List<ProductAvailabilityWithRatesResponse> l = new ArrayList<>();
-        for (int i=0; i<=1; i++) {
+        for (int i = 0; i <= 1; i++) {
             ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();
             response.setCapacity(100);
 
@@ -566,7 +591,7 @@ public class RestService {
     /**
      * This call secures necessary resource(s), such as activity time slot which can later become a booking. The reservation should be held for some
      * limited time, and reverted back to being available if the booking is not confirmed.
-     *
+     * <p>
      * Only implement this method if {@link PluginCapability#RESERVATIONS} is among capabilities of your {@link PluginDefinition}.
      * Otherwise you are only required to implement {@link #createAndConfirmBooking(HttpServerExchange)} which does both
      * reservation and confirmation, this method can be left empty or non-overridden.
@@ -590,7 +615,7 @@ public class RestService {
 
     /**
      * This call cancels existing reservation -- if the booking was not yet confirmed.
-     *
+     * <p>
      * Only implement this method if {@link PluginCapability#RESERVATIONS} and {@link PluginCapability#RESERVATION_CANCELLATION} are among
      * capabilities of your {@link PluginDefinition}.
      */
@@ -611,7 +636,7 @@ public class RestService {
 
     /**
      * Once reserved, proceed with booking. This will be called in case if reservation has succeeded.
-     *
+     * <p>
      * Only implement this method if {@link PluginCapability#RESERVATIONS} is among capabilities of your {@link PluginDefinition}.
      * Otherwise you are only required to implement {@link #createAndConfirmBooking(HttpServerExchange)} which does both
      * reservation and confirmation, this method can be left empty or non-overridden.
@@ -674,6 +699,7 @@ public class RestService {
     /**
      * Example code to get info about the booking initiator.
      * Here you can see which data is available in each bookingSource.getSegment() case
+     *
      * @param bookingSource bookinSource data structure that is provided in booking requests
      */
     void processBookingSourceInfo(BookingSource bookingSource) {
