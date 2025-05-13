@@ -524,7 +524,6 @@ public class RestService {
         List<String> externalProductIds = request.getExternalProductIds();
         String startDate = String.format("%04d-%02d-%02d", range.getFrom().getYear(), range.getFrom().getMonth(), range.getFrom().getDay());
         String endDate = String.format("%04d-%02d-%02d", range.getTo().getYear(), range.getTo().getMonth(), range.getTo().getDay());
-        AppLogger.info(TAG, String.format(" - Extra params: [%s ~ %s] | %s | %s", startDate, endDate, requiredCapacity, externalProductIds));
 
         List<String> filterIds = (configuration.filterIds != null && !configuration.filterIds.isEmpty())
                 ? Arrays.asList(configuration.filterIds.split(","))
@@ -603,7 +602,6 @@ public class RestService {
         String productId = request.getProductId();
         String startDateStart = String.format("%04d-%02d-%02d", range.getFrom().getYear(), range.getFrom().getMonth(), range.getFrom().getDay());
         String startDateEnd = String.format("%04d-%02d-%02d", range.getTo().getYear(), range.getTo().getMonth(), range.getTo().getDay());
-        AppLogger.info(TAG, String.format(" - Extra params: [%s ~ %s] | %s", startDateStart, startDateEnd, productId));
 
         List<ProductAvailabilityWithRatesResponse> productAvailabilityWithRatesResponses = new ArrayList<>();
 
