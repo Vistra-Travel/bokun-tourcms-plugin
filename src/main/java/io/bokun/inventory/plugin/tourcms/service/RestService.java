@@ -166,7 +166,7 @@ public class RestService {
 
         try {
             String productJson = tourCmsClient.getTour(id, true);
-            AppLogger.info(TAG, String.format("TourCMS - getTour ID %s JSON: %s", id, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(productJson))));
+//            AppLogger.info(TAG, String.format("TourCMS - getTour ID %s JSON: %s", id, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(productJson))));
 
             JsonNode productNode = Mapping.MAPPER.readTree(productJson);
             JsonNode product = productNode.get("tour");
@@ -190,7 +190,7 @@ public class RestService {
             departuresParams.put("id", id);
             departuresParams.put("per_page", 20);
             String departuresResponse = tourCmsClient.getTourDepartures(departuresParams);
-            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(departuresResponse))));
+//            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(departuresResponse))));
             JsonNode departuresNode = Mapping.MAPPER.readTree(departuresResponse);
             JsonNode tourDepartureNode = departuresNode.path("tour").path("dates_and_prices").path("departure");
             List<JsonNode> tourDepartureNodes = tourDepartureNode.isArray() ?
@@ -556,7 +556,7 @@ public class RestService {
 
             try {
                 String toursResponse = tourCmsClient.getToursByDates(params);
-                AppLogger.info(TAG, String.format("TourCMS - getToursByDates %s JSON: %s", params, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(toursResponse))));
+//                AppLogger.info(TAG, String.format("TourCMS - getToursByDates %s JSON: %s", params, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(toursResponse))));
 
                 JsonNode datesNode = Mapping.MAPPER.readTree(toursResponse)
                         .path("dates_and_prices")
@@ -614,7 +614,7 @@ public class RestService {
 
         try {
             String tourResponse = tourCmsClient.getTourDepartures(params);
-            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", params, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(tourResponse))));
+//            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", params, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(tourResponse))));
 
             JsonNode tourNode = Mapping.MAPPER.readTree(tourResponse).path("tour");
             if (!tourNode.isMissingNode()) {
