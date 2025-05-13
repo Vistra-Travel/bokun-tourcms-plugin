@@ -627,7 +627,7 @@ public class RestService {
                 for (JsonNode departure : departuresNodeList) {
                     String startDate = departure.path("start_date").isTextual() ? departure.path("start_date").asText() : null;
                     String startTime = departure.path("start_time").isTextual() ? departure.path("start_time").asText() : null;
-                    int capacity = !departure.path("spaces_remaining").isEmpty() ? Integer.parseInt(departure.path("spaces_remaining").asText()) : 0;
+                    int capacity = !departure.path("spaces_remaining").asText().isEmpty() ? Integer.parseInt(departure.path("spaces_remaining").asText()) : 0;
 
                     if (startDate != null && startTime != null) {
                         ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();

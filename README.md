@@ -55,15 +55,15 @@ curl -X POST http://localhost:9090/product/getAvailability \
      "from": {
        "year": 2025,
        "month": 5,
-       "day": 14
+       "day": 13
      },
      "to": {
        "year": 2025,
-       "month": 5,
-       "day": 15
+       "month": 6,
+       "day": 1
      }
    },
-   "productId": "3",
+   "productId": "48",
    "parameters": [
      {
        "name": "TOURCMS_ACCOUNT_ID",
