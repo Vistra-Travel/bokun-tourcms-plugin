@@ -124,7 +124,7 @@ public class Mapping {
         return products;
     }
 
-    public static void addRateIfNotExist(JsonNode rateNode, List<RateWithPrice> rateList, String currency) {
+    public static void addRateIfNotExist(JsonNode rateNode, List<RateWithPrice> rateList, String currency, boolean isMainRate) {
         String rateId = rateNode.path("rate_id").asText();
         boolean exists = rateList.stream().anyMatch(rate -> rate.getRateId().equals(rateId));
 
@@ -146,6 +146,10 @@ public class Mapping {
 
             pricePerPerson.getPricingCategoryWithPrice().add(categoryPrice);
             rate.setPricePerPerson(pricePerPerson);
+
+            PricePerBooking pricePerBooking = new PricePerBooking();
+            pricePerBooking.setPrice(price);
+            rate.setPricePerBooking(pricePerBooking);
 
             rateList.add(rate);
         }
