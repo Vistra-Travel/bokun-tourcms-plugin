@@ -79,9 +79,9 @@ public class Mapping {
             try {
                 Map<String, Object> departuresParams = new HashMap<>();
                 departuresParams.put("id", basicProductInfo.getId());
-                departuresParams.put("per_page", 20);
+                departuresParams.put("per_page", 30);
                 String departuresResponse = tourCmsClient.getTourDepartures(departuresParams);
-                AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(departuresResponse))));
+                // AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(departuresResponse))));
                 JsonNode departuresNode = Mapping.MAPPER.readTree(departuresResponse);
                 JsonNode tourDepartureNode = departuresNode.path("tour").path("dates_and_prices").path("departure");
                 List<JsonNode> tourDepartureNodes = tourDepartureNode.isArray() ?
@@ -102,11 +102,6 @@ public class Mapping {
                         basicProductInfo.setPricingCategories(parsePriceCategoryFromNodeList(mainPriceNodeArray));
                     }
                 }
-
-//                String productJson = tourCmsClient.getTour(basicProductInfo.getId(), true);
-//                JsonNode productDetailNode = MAPPER.readTree(productJson);
-//                JsonNode product = productDetailNode.get("tour");
-//                basicProductInfo.setPricingCategories(parsePriceCategoryFromTourNode(product));
             } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
                 AppLogger.error(TAG, String.format("Failed to get product id: %s", basicProductInfo.getId()), e);
                 PricingCategory fromPrice = new PricingCategory();
@@ -147,9 +142,11 @@ public class Mapping {
             pricePerPerson.getPricingCategoryWithPrice().add(categoryPrice);
             rate.setPricePerPerson(pricePerPerson);
 
-            PricePerBooking pricePerBooking = new PricePerBooking();
-            pricePerBooking.setPrice(price);
-            rate.setPricePerBooking(pricePerBooking);
+            if (isMainRate) {
+                PricePerBooking pricePerBooking = new PricePerBooking();
+                pricePerBooking.setPrice(price);
+                rate.setPricePerBooking(pricePerBooking);
+            }
 
             rateList.add(rate);
         }

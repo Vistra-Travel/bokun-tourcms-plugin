@@ -92,27 +92,6 @@ public class RestService {
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         AppLogger.info(TAG, String.format("Start fetching products from TourCMS: %s - %s - %s", tourCmsClient.marketplaceId, tourCmsClient.channelId, tourCmsClient.apiKey));
 
-        /*if (configuration.filterIds != null && !configuration.filterIds.isEmpty()) {
-            String[] filterIds = configuration.filterIds.split(",");
-            for (String filterId : filterIds) {
-                filterId = filterId.trim();
-                try {
-                    AppLogger.info(TAG, String.format("Finding product ID: %s", filterId));
-                    String productJson = tourCmsClient.getTour(filterId, true);
-                    JsonNode productNode = objectMapper.readTree(productJson);
-                    JsonNode product = productNode.get("tour");
-                    BasicProductInfo basicProductInfo = new BasicProductInfo();
-                    basicProductInfo.setId(product.get("tour_id").asText());
-                    basicProductInfo.setName(product.get("tour_name").asText());
-                    basicProductInfo.setDescription(product.get("shortdesc").asText());
-                    basicProductInfo.setPricingCategories(Mapping.parsePriceCategory(product));
-                    products.add(basicProductInfo);
-                } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
-                    AppLogger.error(TAG, String.format("Couldn't process product ID: %s", filterId), e);
-                }
-            }
-        }*/
-
         String data = "";
         Map<String, Object> params = new HashMap<>();
         params.put("per_page", 200);
@@ -188,7 +167,7 @@ public class RestService {
             Map<String, Object> departuresParams = new HashMap<>();
             List<PricingCategory> backupPriceCategories = new ArrayList<>();
             departuresParams.put("id", id);
-            departuresParams.put("per_page", 20);
+            departuresParams.put("per_page", 30);
             String departuresResponse = tourCmsClient.getTourDepartures(departuresParams);
 //            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(departuresResponse))));
             JsonNode departuresNode = Mapping.MAPPER.readTree(departuresResponse);
