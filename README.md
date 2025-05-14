@@ -55,12 +55,12 @@ curl -X POST http://localhost:9090/product/getAvailability \
      "from": {
        "year": 2025,
        "month": 5,
-       "day": 13
+       "day": 14
      },
      "to": {
        "year": 2025,
-       "month": 6,
-       "day": 1
+       "month": 05,
+       "day": 16
      }
    },
    "productId": "48",

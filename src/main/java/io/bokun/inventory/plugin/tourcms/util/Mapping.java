@@ -3,9 +3,7 @@ package io.bokun.inventory.plugin.tourcms.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import io.bokun.inventory.plugin.api.rest.BasicProductInfo;
-import io.bokun.inventory.plugin.api.rest.PricingCategory;
-import io.bokun.inventory.plugin.api.rest.Rate;
+import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
 
 import java.io.IOException;
@@ -124,5 +122,32 @@ public class Mapping {
         }
 
         return products;
+    }
+
+    public static void addRateIfNotExist(JsonNode rateNode, List<RateWithPrice> rateList, String currency) {
+        String rateId = rateNode.path("rate_id").asText();
+        boolean exists = rateList.stream().anyMatch(rate -> rate.getRateId().equals(rateId));
+
+        if (!exists) {
+            RateWithPrice rate = new RateWithPrice();
+            rate.setRateId(rateId);
+
+            PricePerPerson pricePerPerson = new PricePerPerson();
+            pricePerPerson.setPricingCategoryWithPrice(new ArrayList<>());
+
+            PricingCategoryWithPrice categoryPrice = new PricingCategoryWithPrice();
+            categoryPrice.setPricingCategoryId(rateId);
+
+            Price price = new Price();
+            price.setAmount(rateNode.path("rate_price").asText());
+            price.setCurrency(currency);
+
+            categoryPrice.setPrice(price);
+
+            pricePerPerson.getPricingCategoryWithPrice().add(categoryPrice);
+            rate.setPricePerPerson(pricePerPerson);
+
+            rateList.add(rate);
+        }
     }
 }
