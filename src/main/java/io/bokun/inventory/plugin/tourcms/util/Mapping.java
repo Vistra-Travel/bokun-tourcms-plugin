@@ -11,10 +11,7 @@ import io.bokun.inventory.plugin.tourcms.model.ProductRateMapping;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class Mapping {
@@ -123,9 +120,14 @@ public class Mapping {
         return products;
     }
 
-    public static RateWithPrice mapRate(JsonNode rateNode, String currency, boolean isMainRate) {
-
-        String rateId = rateNode.path("rate_id").asText();
+    public static RateWithPrice mapRate(ProductRateMapping productRateMapping, String supplierNode, JsonNode pricingCategoryNode, String currency, boolean isMainRate) {
+        String pricingCategoryId = pricingCategoryNode.path("rate_id").asText();
+        String amount = pricingCategoryNode.path("rate_price").asText();
+        String rateId = supplierNode != null && !supplierNode.isEmpty() ? supplierNode : null;
+        if (rateId == null) {
+            List<Rate> rates = productRateMapping.getRates();
+            rateId = rates.stream().findFirst().map(Rate::getId).orElse(null);
+        }
 
         RateWithPrice rate = new RateWithPrice();
         rate.setRateId(rateId);
@@ -134,10 +136,10 @@ public class Mapping {
         pricePerPerson.setPricingCategoryWithPrice(new ArrayList<>());
 
         PricingCategoryWithPrice categoryPrice = new PricingCategoryWithPrice();
-        categoryPrice.setPricingCategoryId(rateId);
+        categoryPrice.setPricingCategoryId(pricingCategoryId);
 
         Price price = new Price();
-        price.setAmount(rateNode.path("rate_price").asText());
+        price.setAmount(amount);
         price.setCurrency(currency);
 
         categoryPrice.setPrice(price);
@@ -192,42 +194,21 @@ public class Mapping {
         Map<String, Object> departuresParams = new HashMap<>();
         departuresParams.put("id", id);
         departuresParams.put("per_page", 30);
-        String tourShowResponse = tourCmsClient.getTour(id, true);
         String tourDeparturesResponse = tourCmsClient.getTourDepartures(departuresParams);
-        return parseProductRates(tourShowResponse, tourDeparturesResponse);
+        return parseProductRates(tourDeparturesResponse);
     }
 
-    public static ProductRateMapping parseProductRates(String tourShowResponse, String tourDeparturesResponse) throws JsonProcessingException {
+    public static ProductRateMapping parseProductRates(String tourDeparturesResponse) throws JsonProcessingException {
         List<Rate> rates = new ArrayList<>();
         List<String> startTimes = new ArrayList<>();
         List<PricingCategory> priceCategories = new ArrayList<>();
 
-        JsonNode tourShowNode = Mapping.MAPPER.readTree(tourShowResponse);
         JsonNode tourDeparturesNode = Mapping.MAPPER.readTree(tourDeparturesResponse);
-        JsonNode newBookingRates = tourShowNode.path("tour").path("new_booking").path("people_selection").path("rate");
         JsonNode tourDepartures = tourDeparturesNode.path("tour").path("dates_and_prices").path("departure");
-
-        List<JsonNode> newBookingRatesList = newBookingRates.isArray() ?
-                ImmutableList.copyOf(newBookingRates) :
-                ImmutableList.of(newBookingRates);
 
         List<JsonNode> tourDeparturesList = tourDepartures.isArray() ?
                 ImmutableList.copyOf(tourDepartures) :
                 ImmutableList.of(tourDepartures);
-
-        /*if (!newBookingRatesList.isEmpty()) {
-            for (JsonNode rateNode : newBookingRatesList) {
-                String rateId = rateNode.path("rate_id").asText();
-                String rateLabel = rateNode.path("label_1").asText();
-
-                if (!rateId.isEmpty() && !rateLabel.isEmpty() && rates.stream().noneMatch(r -> r.getId().equals(rateId))) {
-                    Rate rate = new Rate();
-                    rate.setId(rateId);
-                    rate.setLabel(rateLabel);
-                    rates.add(rate);
-                }
-            }
-        }*/
 
         if (!tourDeparturesList.isEmpty()) {
             for (JsonNode departure : tourDeparturesList) {
