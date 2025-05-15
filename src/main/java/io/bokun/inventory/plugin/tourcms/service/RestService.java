@@ -634,8 +634,13 @@ public class RestService {
      * reservation and confirmation, this method can be left empty or non-overridden.
      */
     public void createReservation(HttpServerExchange exchange) {
-        // body of this method can be left empty if reserve & confirm is only supported as a single step
-        AppLogger.info(TAG, "In ::createReservation");
+        ReservationRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ReservationRequest.class);
+        AppLogger.info(TAG, String.format("Create reservation: %s", request.getReservationData()));
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
+
+        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
         // At this point you might want to call your external system to do the actual reservation and return data back.
         // Code below just provides some mocks.
@@ -657,7 +662,10 @@ public class RestService {
      * capabilities of your {@link PluginDefinition}.
      */
     public void cancelReservation(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "In ::cancelReservation");
+        CancelReservationRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CancelReservationRequest.class);
+        AppLogger.info(TAG, String.format("Cancel reservation: %s - %s", request.getAgentCode(), request.getReservationConfirmationCode()));
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         // At this point you might want to call your external system to do the actual reservation and return data back.
         // Code below just provides some mocks.

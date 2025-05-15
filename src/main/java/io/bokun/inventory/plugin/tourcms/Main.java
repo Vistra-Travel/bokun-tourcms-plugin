@@ -63,8 +63,11 @@ public class Main {
                                 .post("/product/getById", new BlockingHandler(server.restService::getProductById))
                                 .post("/product/getAvailable", new BlockingHandler(server.restService::getAvailableProducts))
                                 .post("/product/getAvailability", new BlockingHandler(server.restService::getProductAvailability))
+
+                                .get("/tour-cms/reserve", new BlockingHandler(server.restService::createReservation))
                                 .post("/booking/reserve", new BlockingHandler(server.restService::createReservation))
                                 .post("/booking/cancelReserve", new BlockingHandler(server.restService::cancelReservation))
+
                                 .post("/booking/confirm", new BlockingHandler(server.restService::confirmBooking))
                                 .post("/booking/createAndConfirm", new BlockingHandler(server.restService::createAndConfirmBooking))
                                 .post("/booking/cancel", new BlockingHandler(server.restService::cancelBooking))

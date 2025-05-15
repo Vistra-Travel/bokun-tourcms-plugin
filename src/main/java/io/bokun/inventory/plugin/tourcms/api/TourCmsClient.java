@@ -1,6 +1,7 @@
 package io.bokun.inventory.plugin.tourcms.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.bokun.inventory.plugin.tourcms.model.TourCMSBooking;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import okhttp3.*;
@@ -8,7 +9,11 @@ import org.apache.commons.codec.binary.Base64;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -183,6 +188,55 @@ public class TourCmsClient {
                 throw new IOException("Failed to update tour: " + response.message());
             }
             return resultResponse(response);
+        }
+    }
+
+    public String checkTourAvailability(HashMap<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        try (Response response = buildRequest("/c/tour/datesprices/checkavail.xml", "POST", query, null)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to create temporary booking: " + response.message());
+            }
+
+            String result = resultResponse(response);
+            AppLogger.info(TAG, "Booking created successfully: " + result);
+            return result;
+        }
+    }
+
+    public String createTemporaryBooking(TourCMSBooking booking) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
+        JAXBContext context = JAXBContext.newInstance(TourCMSBooking.class);
+        Marshaller marshaller = context.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+
+        StringWriter stringWriter = new StringWriter();
+        marshaller.marshal(booking, stringWriter);
+
+        String bookingXml = stringWriter.toString();
+        AppLogger.info(TAG, "Generated XML for Booking:\n" + bookingXml);
+
+        try (Response response = buildRequest("/c/booking/new/start.xml", "POST", null, bookingXml)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to create temporary booking: " + response.message());
+            }
+
+            String result = resultResponse(response);
+            AppLogger.info(TAG, "Booking created successfully: " + result);
+            return result;
+        }
+    }
+
+    public String deleteTemporaryBooking(String bookingId) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        Map<String, Object> params = new HashMap<>();
+        params.put("booking_id", bookingId);
+
+        try (Response response = buildRequest("/c/booking/delete.xml", "POST", params, null)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to delete temporary booking: " + response.message());
+            }
+
+            String result = resultResponse(response);
+            AppLogger.info(TAG, "Booking deleted successfully: " + result);
+            return result;
         }
     }
 
