@@ -8,9 +8,11 @@ import com.google.inject.Inject;
 import com.squareup.okhttp.OkHttpClient;
 import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.tourcms.Configuration;
+import io.bokun.inventory.plugin.tourcms.api.TelegramClient;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
 import io.bokun.inventory.plugin.tourcms.model.*;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
+import io.bokun.inventory.plugin.tourcms.util.EmailSender;
 import io.bokun.inventory.plugin.tourcms.util.Mapping;
 import io.undertow.server.HttpServerExchange;
 
@@ -804,6 +806,7 @@ public class RestService {
             String commitBookingResponse = tourCmsClient.commitBooking(booking);
             String bookingId = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("booking_id").asText();
             String barcodeData = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("barcode_data").asText();
+            String voucherUrl = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("voucher_url").asText();
             if (bookingId == null || bookingId.isEmpty()) {
                 AppLogger.warn(TAG, "Booking ID is NULL OR Empty!");
                 exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
@@ -824,6 +827,21 @@ public class RestService {
             String responseJson = new Gson().toJson(response);
             AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
             exchange.getResponseSender().send(responseJson);
+
+            // Send notification
+            AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
+            EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword);
+            sender.sendEmailWithAttachment(
+                    request.getReservationData().getCustomerContact().getEmail(),
+                    "Booking Confirmation",
+                    "Your booking has been confirmed successfully! We have attached the travel itinerary.",
+                    request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
+                    bookingId,
+                    voucherUrl
+            );
+            AppLogger.info(TAG, "Sending booking success info to telegram");
+            BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(commitBookingResponse);
+            TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
         } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
@@ -941,5 +959,9 @@ public class RestService {
         String responseJson = new Gson().toJson(response);
         AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
         exchange.getResponseSender().send(responseJson);
+
+        AppLogger.info(TAG, "Sending booking cancel info to telegram");
+        BookingCancelMessage bookingCancelMessage = new BookingCancelMessage(booking);
+        TelegramClient.sendTelegramMessage(bookingCancelMessage.toString());
     }
 }

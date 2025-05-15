@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e6f7ff;
+            margin: 0;
+            padding: 0;
+        }
+        .email-container {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #55a6fd;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+        }
+        .header img {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 5px;
+        }
+        .content {
+            padding: 20px;
+            font-size: 16px;
+            color: #333333;
+        }
+        .booking-info {
+            margin-top: 15px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .footer {
+            background-color: #f1f1f1;
+            text-align: center;
+            padding: 15px;
+            color: #888888;
+            font-size: 12px;
+        }
+        .btn {
+            background-color: #15c;
+            color: white !important;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <img src="cid:logo_cid" alt="Logo" style="width: 150px; height: 100px;">
+        <h2>Vistra Travel Booking Confirmation</h2>
+    </div>
+    <div class="content">
+        <p>Dear {{name}},</p>
+        <p>{{content}}</p>
+
+        <div class="booking-info">
+            <p><strong>Booking ID:</strong> {{booking_id}}</p>
+            <p><strong>Booking Date:</strong> {{booking_date}}</p>
+        </div>
+
+        <p>We appreciate your trust in us. If you have any questions, feel free to contact us.</p>
+        <a href="https://vistratravel.com" class="btn">Visit Our Website</a>
+    </div>
+    <div class="footer">
+        © 2025 Vistra Travel - All rights reserved.<br>
+        27 Old Gloucester St, London, UK
+    </div>
+</div>
+</body>
+</html>

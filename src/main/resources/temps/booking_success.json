@@ -1,0 +1,46 @@
+{
+  "request": "POST /c/booking/new/commit.xml",
+  "error": "OK",
+  "booking": {
+    "booking_id": "65281",
+    "booking_uuid": "",
+    "channel_id": "3930",
+    "account_id": "4069",
+    "status": "2",
+    "status_text": "Confirmed",
+    "voucher_url": "https://voucher.tourcms.com/print.php?id=QRGTQhCDdUB4KzDg3rA5AGzC28EAWEqh9be902CxNxo%3D",
+    "barcode_data": "TOURCMS|4069|65281",
+    "components": {
+      "component": {
+        "component_id": "39037324",
+        "barcode_symbology": "",
+        "operator_reference": "OPREF-65281",
+        "linked_component_id": "39037324",
+        "product_id": "48",
+        "product_code": "",
+        "date_id": "126709",
+        "date_code": "09:00-10:00",
+        "start_date": "2025-05-31",
+        "end_date": "2025-05-31",
+        "local_payment": "0",
+        "customer_payment": "0",
+        "rate_breakdown": "r1|a",
+        "rate_description": "Adult",
+        "start_time": "09:00",
+        "end_time": "10:00",
+        "date_type": "departure",
+        "component_name": "TEST Granada City Bus",
+        "sale_quantity_rule": "PERSON",
+        "sale_quantity": "1",
+        "urls": {
+          "url": {
+            "type": "voucher",
+            "mime_type": "text/html",
+            "link": "https://example.com/65281",
+            "label": "freetext"
+          }
+        }
+      }
+    }
+  }
+}

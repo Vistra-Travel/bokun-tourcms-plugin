@@ -5,11 +5,18 @@ public final class Configuration {
     public static final String TOURCMS_PRIVATE_KEY = "TOURCMS_PRIVATE_KEY";
     public static final String TOURCMS_CHANNEL_ID = "TOURCMS_CHANNEL_ID";
     public static final String TOURCMS_FILTER_IDS = "TOURCMS_FILTER_IDS";
+    public static final String SMTP_SERVER = "SMTP_SERVER";
+    public static final String SMTP_USERNAME = "SMTP_USERNAME";
+    public static final String SMTP_PASSWORD = "SMTP_PASSWORD";
 
     public String marketplaceId;
     public String channelId;
     public String apiKey;
     public String filterIds;
+
+    public String smtpServer;
+    public String smtpUsername;
+    public String smtpPassword;
 
     private static void setParameterValue(String parameterName, String parameterValue, Configuration configuration) {
         switch (parameterName) {
@@ -17,6 +24,9 @@ public final class Configuration {
             case TOURCMS_CHANNEL_ID: configuration.channelId = parameterValue; break;
             case TOURCMS_PRIVATE_KEY: configuration.apiKey = parameterValue; break;
             case TOURCMS_FILTER_IDS: configuration.filterIds = parameterValue; break;
+            case SMTP_SERVER: configuration.smtpServer = parameterValue; break;
+            case SMTP_USERNAME: configuration.smtpUsername = parameterValue; break;
+            case SMTP_PASSWORD: configuration.smtpPassword = parameterValue; break;
         }
     }
 
