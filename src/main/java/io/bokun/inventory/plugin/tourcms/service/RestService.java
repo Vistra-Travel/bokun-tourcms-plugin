@@ -1,9 +1,7 @@
 package io.bokun.inventory.plugin.tourcms.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.inject.Inject;
@@ -26,7 +24,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static io.bokun.inventory.plugin.api.rest.PluginCapability.AVAILABILITY;
+import static io.bokun.inventory.plugin.api.rest.PluginCapability.*;
 import static io.undertow.util.Headers.CONTENT_TYPE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -67,8 +65,8 @@ public class RestService {
         definition.getCapabilities().add(AVAILABILITY);
 
         // below entry should be commented out if the plugin only supports reservation & confirmation as a single step
-//        definition.getCapabilities().add(RESERVATIONS);
-//        definition.getCapabilities().add(RESERVATION_CANCELLATION);
+        definition.getCapabilities().add(RESERVATIONS);
+        definition.getCapabilities().add(RESERVATION_CANCELLATION);
 //        definition.getCapabilities().add(AMENDMENT);
 
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_ACCOUNT_ID, true));
