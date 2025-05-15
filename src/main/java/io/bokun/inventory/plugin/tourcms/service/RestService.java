@@ -806,6 +806,7 @@ public class RestService {
 
         TourCMSBooking booking = new TourCMSBooking();
         booking.setBookingId(request.getReservationConfirmationCode());
+        booking.setSuppressEmail(1); // Ignore send email to customer from TourCMS
 
         try {
             String commitBookingResponse = tourCmsClient.commitBooking(booking);

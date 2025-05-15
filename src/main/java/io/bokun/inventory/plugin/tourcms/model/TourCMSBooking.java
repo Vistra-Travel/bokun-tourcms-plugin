@@ -12,6 +12,9 @@ public class TourCMSBooking {
     @XmlElement(name = "total_customers")
     private Integer totalCustomers;
 
+    @XmlElement(name = "suppress_email")
+    private Integer suppressEmail;
+
     @XmlElement(name = "booking_key")
     private String bookingKey;
 
@@ -50,6 +53,14 @@ public class TourCMSBooking {
 
     public void setTotalCustomers(Integer totalCustomers) {
         this.totalCustomers = totalCustomers;
+    }
+
+    public Integer getSuppressEmail() {
+        return suppressEmail;
+    }
+
+    public void setSuppressEmail(Integer suppressEmail) {
+        this.suppressEmail = suppressEmail;
     }
 
     public String getBookingKey() {
