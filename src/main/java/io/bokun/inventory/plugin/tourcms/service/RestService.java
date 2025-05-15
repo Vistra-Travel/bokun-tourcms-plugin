@@ -726,7 +726,7 @@ public class RestService {
                 return;
             }
 
-            String bookingId = bookingNode.get("booking_id").asText();
+            String bookingId = bookingNode.path("booking_id").asText();
             if (bookingId == null || bookingId.isEmpty()) {
                 AppLogger.warn(TAG, "Booking ID is NULL OR Empty!");
                 successfulReservation.setReservationConfirmationCode(null);

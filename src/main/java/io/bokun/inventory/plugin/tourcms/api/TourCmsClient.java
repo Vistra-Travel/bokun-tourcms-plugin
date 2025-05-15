@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.bokun.inventory.plugin.tourcms.model.TourCMSBooking;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import io.bokun.inventory.plugin.tourcms.util.Mapping;
 import okhttp3.*;
 import org.apache.commons.codec.binary.Base64;
 
@@ -198,7 +199,7 @@ public class TourCmsClient {
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking created successfully: " + result);
+            AppLogger.info(TAG, "Booking created successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
@@ -220,7 +221,7 @@ public class TourCmsClient {
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking created successfully: " + result);
+            AppLogger.info(TAG, "Booking created successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
@@ -235,7 +236,7 @@ public class TourCmsClient {
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking deleted successfully: " + result);
+            AppLogger.info(TAG, "Booking deleted successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
@@ -257,7 +258,7 @@ public class TourCmsClient {
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking commit successfully: " + result);
+            AppLogger.info(TAG, "Booking commit successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
@@ -279,22 +280,29 @@ public class TourCmsClient {
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking cancel successfully: " + result);
+            AppLogger.info(TAG, "Booking cancel successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
 
-    public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        TourCmsClient tourCmsClient = new TourCmsClient();
+    public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
+        TourCmsClient tourCmsClient = new TourCmsClient("58193", "3930", "Q3NujxeAumuTvJbWF");
 
 //        String product = tourCmsClient.getProduct("48", true);
 //        AppLogger.info(TAG, String.format(" - Response: %s", product));
 
-        Map<String, Object> params = new HashMap<>();
-        params.put("per_page", 200);
-        params.put("tour_id", 48);
-        AppLogger.info(TAG, String.format("Get all products: %s - %s - %s", tourCmsClient.apiKey, tourCmsClient.marketplaceId, tourCmsClient.channelId));
-        String products = tourCmsClient.getTours(params);
-        AppLogger.info(TAG, String.format(" - Response: %s", products));
+//        Map<String, Object> params = new HashMap<>();
+//        params.put("per_page", 200);
+//        params.put("tour_id", 48);
+//        AppLogger.info(TAG, String.format("Get all products: %s - %s - %s", tourCmsClient.apiKey, tourCmsClient.marketplaceId, tourCmsClient.channelId));
+//        String products = tourCmsClient.getTours(params);
+//        AppLogger.info(TAG, String.format(" - Response: %s", products));
+
+        // tourCmsClient.deleteTemporaryBooking("65277");
+
+        TourCMSBooking booking = new TourCMSBooking();
+        booking.setBookingId("65277");
+        booking.setNote("OK");
+        tourCmsClient.cancelBooking(booking);
     }
 }
