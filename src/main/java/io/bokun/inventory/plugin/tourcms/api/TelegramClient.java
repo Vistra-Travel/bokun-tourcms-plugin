@@ -124,26 +124,26 @@ public class TelegramClient {
 
     public static void main(String[] args) {
         // Test Booking Success Message
-        String jsonResponse = loadJsonFromFile(JSON_PATH);
-        if (jsonResponse == null || jsonResponse.isEmpty()) {
-            AppLogger.error(TAG, "Failed to load JSON from path: " + JSON_PATH);
-            return;
-        }
-
-        BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(new ConfirmBookingRequest(), jsonResponse);
-        TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString())
-                .whenComplete((result, error) -> {
-                    if (error != null) {
-                        AppLogger.error(TAG, "Failed to send message: " + error.getMessage(), error);
-                    } else {
-                        AppLogger.info(TAG, "Message sent successfully!");
-                    }
-                });
+//        String jsonResponse = loadJsonFromFile(JSON_PATH);
+//        if (jsonResponse == null || jsonResponse.isEmpty()) {
+//            AppLogger.error(TAG, "Failed to load JSON from path: " + JSON_PATH);
+//            return;
+//        }
+//
+//        BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(new ConfirmBookingRequest(), jsonResponse);
+//        TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString())
+//                .whenComplete((result, error) -> {
+//                    if (error != null) {
+//                        AppLogger.error(TAG, "Failed to send message: " + error.getMessage(), error);
+//                    } else {
+//                        AppLogger.info(TAG, "Message sent successfully!");
+//                    }
+//                });
 
         // Test Booking Cancel Message
         TourCMSBooking tourCMSBooking = new TourCMSBooking();
-        tourCMSBooking.setBookingId("123456789");
-        tourCMSBooking.setNote("Cancel booking by BóKun!");
+        tourCMSBooking.setBookingId("TEST-123123");
+        tourCMSBooking.setNote("Test notification!");
         tourCMSBooking.setCancelReason("23");
 
         BookingCancelMessage bookingCancelMessage = new BookingCancelMessage(tourCMSBooking);
