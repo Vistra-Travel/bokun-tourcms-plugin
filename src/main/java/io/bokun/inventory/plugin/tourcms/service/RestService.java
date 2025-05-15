@@ -584,6 +584,10 @@ public class RestService {
                 .thenComparing(p -> p.getTime().getMinute())
         );
 
+        productAvailabilityWithRatesResponses = productAvailabilityWithRatesResponses.stream()
+                .filter(p -> p.getCapacity() > 0)
+                .collect(Collectors.toList());
+
         // Set header và gửi response
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         String response = new Gson().toJson(productAvailabilityWithRatesResponses);

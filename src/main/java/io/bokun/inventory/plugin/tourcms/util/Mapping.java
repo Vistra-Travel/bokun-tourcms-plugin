@@ -144,12 +144,14 @@ public class Mapping {
         pricePerPerson.getPricingCategoryWithPrice().add(categoryPrice);
         rate.setPricePerPerson(pricePerPerson);
 
-        // === Nếu là MainRate, thiết lập giá cho toàn bộ booking ===
-        if (isMainRate) {
-            PricePerBooking pricePerBooking = new PricePerBooking();
-            pricePerBooking.setPrice(price);
-            rate.setPricePerBooking(pricePerBooking);
-        }
+//        // === Nếu là MainRate, thiết lập giá cho toàn bộ booking ===
+//        if (isMainRate) {
+//
+//        }
+
+        PricePerBooking pricePerBooking = new PricePerBooking();
+        pricePerBooking.setPrice(price);
+        rate.setPricePerBooking(pricePerBooking);
 
         return rate;
     }
