@@ -29,19 +29,19 @@ curl -X POST http://localhost:9090/product/search \
 curl -X POST http://localhost:9090/product/getById \
 -H "Content-Type: application/json" \
 -d '{
-   "externalId": "134",
+   "externalId": "48",
    "parameters": [
      {
        "name": "TOURCMS_ACCOUNT_ID",
-       "value": "12345"
+       "value": "58193"
      },
      {
        "name": "TOURCMS_CHANNEL_ID",
-       "value": "1234"
+       "value": "3930"
      },
      {
        "name": "TOURCMS_PRIVATE_KEY",
-       "value": "abcxyz123123"
+       "value": "Q3NujxeAumuTvJbWF"
      }
    ]
  }'

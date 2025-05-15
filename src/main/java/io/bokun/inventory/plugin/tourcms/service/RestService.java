@@ -125,8 +125,8 @@ public class RestService {
     }
 
     public void getProductById(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "Get product by id!");
         GetProductByIdRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), GetProductByIdRequest.class);
+        AppLogger.info(TAG, String.format("Get product by id: %s", request.getExternalId()));
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
@@ -141,13 +141,16 @@ public class RestService {
             exchange.getResponseSender().send("{'message':'" + msg + "'}");
         }
 
-        AppLogger.info(TAG, String.format("Product ID: %s", id));
+        Map<String, Object> tourDeparturesParams = new HashMap<>();
+        tourDeparturesParams.put("id", id);
+        tourDeparturesParams.put("per_page", 30);
 
         try {
-            String productJson = tourCmsClient.getTour(id, true);
+            String tourShowResponse = tourCmsClient.getTour(id, true);
 //            AppLogger.info(TAG, String.format("TourCMS - getTour ID %s JSON: %s", id, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(productJson))));
+            String tourDeparturesResponse = tourCmsClient.getTourDepartures(tourDeparturesParams);
 
-            JsonNode productNode = Mapping.MAPPER.readTree(productJson);
+            JsonNode productNode = Mapping.MAPPER.readTree(tourShowResponse);
             JsonNode product = productNode.get("tour");
 
             ProductDescription description = new ProductDescription();
@@ -158,107 +161,20 @@ public class RestService {
             // 3. description
             description.setDescription(product.get("shortdesc").asText());
 
+
+
+            HashMap<String, Object> rateHelperResult = Mapping.parseProductRates(tourShowResponse, tourDeparturesResponse);
+            List<Rate> rates = (List<Rate>) rateHelperResult.getOrDefault("rates", new ArrayList<>());
+            List<String> startTimes = (List<String>) rateHelperResult.getOrDefault("startTimes", new ArrayList<>());
+            List<PricingCategory> pricingCategories = (List<PricingCategory>) rateHelperResult.getOrDefault("priceCategories", new ArrayList<>());
+
+
             // 3. pricingCategories
-            description.setPricingCategories(Mapping.parsePriceCategoryFromTourNode(product));
-
+            description.setPricingCategories(pricingCategories);
             // 4. rates
-            List<String> startTimesByDepartureTypes = new ArrayList<>();
-            List<Rate> rates = new ArrayList<>();
-            Map<String, Object> departuresParams = new HashMap<>();
-            List<PricingCategory> backupPriceCategories = new ArrayList<>();
-            departuresParams.put("id", id);
-            departuresParams.put("per_page", 30);
-            String departuresResponse = tourCmsClient.getTourDepartures(departuresParams);
-//            AppLogger.info(TAG, String.format("TourCMS - getTourDepartures %s JSON: %s", departuresParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(departuresResponse))));
-            JsonNode departuresNode = Mapping.MAPPER.readTree(departuresResponse);
-            JsonNode tourDepartureNode = departuresNode.path("tour").path("dates_and_prices").path("departure");
-            List<JsonNode> tourDepartureNodes = tourDepartureNode.isArray() ?
-                    ImmutableList.copyOf(tourDepartureNode) :
-                    ImmutableList.of(tourDepartureNode);
-            if (!tourDepartureNodes.isEmpty()) {
-                for (JsonNode departure : tourDepartureNodes) {
-                    String note = departure.path("note").asText();
-                    String supplierNote = departure.path("supplier_note").asText();
-                    String startTime = departure.path("start_time").asText();
-                    if (!note.isEmpty() && !supplierNote.isEmpty() && rates.stream().noneMatch(r -> r.getId().equals(supplierNote))) {
-                        Rate rate = new Rate();
-                        rate.setId(supplierNote);
-                        rate.setLabel(note.substring(0, 1).toUpperCase() + note.substring(1).toLowerCase());
-                        rates.add(rate);
-                    }
-                    if (!startTimesByDepartureTypes.contains(startTime)) {
-                        startTimesByDepartureTypes.add(startTime);
-                    }
-
-                    JsonNode mainPriceNode = departure.path("main_price");
-                    JsonNode extraPriceNode = departure.path("extra_rates").path("rate");
-                    List<JsonNode> mainPriceNodeArray = mainPriceNode.isArray() ?
-                            new ArrayList<>(ImmutableList.copyOf(mainPriceNode)) :
-                            new ArrayList<>(ImmutableList.of(mainPriceNode));
-                    List<JsonNode> extraPriceNodeArray = extraPriceNode.isArray() ?
-                            ImmutableList.copyOf(extraPriceNode) :
-                            ImmutableList.of(extraPriceNode);
-                    mainPriceNodeArray.addAll(extraPriceNodeArray);
-                    backupPriceCategories = Mapping.parsePriceCategoryFromNodeList(mainPriceNodeArray);
-                }
-            }
-            if (rates.isEmpty()) {
-                JsonNode departureTypesNode = product.path("tour_departure_structure").path("departure_types").path("type");
-                if (departureTypesNode.isArray()) {
-                    for (JsonNode type : departureTypesNode) {
-                        boolean isActive = type.path("active").asInt() == 1;
-                        if (!isActive) {
-                            continue;
-                        }
-                        JsonNode fieldsNode = type.path("fields").path("field");
-                        List<JsonNode> fields = new ArrayList<>();
-                        if (fieldsNode.isArray()) {
-                            fieldsNode.forEach(fields::add);
-                        } else {
-                            fields.add(fieldsNode);
-                        }
-                        for (JsonNode field : fields) {
-                            String fieldName = field.path("name").asText();
-                            String fieldValue = field.path("value").asText();
-                            if (fieldName != null && fieldValue != null) {
-                                if (fieldName.equals("supplier_note")) {
-                                    boolean exists = rates.stream().anyMatch(r -> r.getId().equals(fieldValue));
-                                    if (!exists) {
-                                        Rate rate = new Rate();
-                                        rate.setId(fieldValue);
-                                        rate.setLabel(fieldValue.substring(0, 1).toUpperCase() + fieldValue.substring(1).toLowerCase());
-                                        rates.add(rate);
-                                    }
-                                }
-                                if (fieldName.equals("start_time")) {
-                                    boolean exists = startTimesByDepartureTypes.contains(fieldValue);
-                                    if (!exists) {
-                                        startTimesByDepartureTypes.add(fieldValue);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (rates.isEmpty()) {
-                rates.addAll(ImmutableList.of(
-                        new Rate().id("standard_rate").label("Standard Rate")
-                ));
-            }
             description.setRates(rates);
-
-            // 3.1. Check pricingCategories apply backupPriceCategories
-            if (!backupPriceCategories.isEmpty()) {
-                AppLogger.info(TAG, String.format(" - Product ID %s -> Apply backup price category!", id));
-                description.setPricingCategories(backupPriceCategories);
-            }
-
-            startTimesByDepartureTypes = startTimesByDepartureTypes.stream()
-                    .filter(item -> item != null && !item.trim().isEmpty())
-                    .collect(Collectors.toList());
             // 5. bookingType
-            if (!startTimesByDepartureTypes.isEmpty()) {
+            if (!startTimes.isEmpty()) {
                 description.setBookingType(BookingType.DATE_AND_TIME);
             } else {
                 JsonNode dateType = product.path("new_booking").path("date_selection").path("date_type");
@@ -347,10 +263,10 @@ public class RestService {
             // 12. startTimes
             if (description.getBookingType().equals(BookingType.DATE_AND_TIME)) {
                 JsonNode startTimeNode = product.path("start_time");
-                if (startTimeNode.isTextual() && startTimeNode.asText().contains(":") && !startTimesByDepartureTypes.contains(startTimeNode.asText())) {
-                    startTimesByDepartureTypes.add(startTimeNode.asText());
+                if (startTimeNode.isTextual() && startTimeNode.asText().contains(":") && !startTimes.contains(startTimeNode.asText())) {
+                    startTimes.add(startTimeNode.asText());
                 }
-                startTimesByDepartureTypes.sort((time1, time2) -> {
+                startTimes.sort((time1, time2) -> {
                     String[] parts1 = time1.split(":");
                     String[] parts2 = time2.split(":");
 
@@ -364,17 +280,17 @@ public class RestService {
                     }
                     return Integer.compare(hour1, hour2);
                 });
-                List<Time> startTimes = new ArrayList<>();
-                for (String startTime : startTimesByDepartureTypes) {
+                List<Time> startTimesList = new ArrayList<>();
+                for (String startTime : startTimes) {
                     String[] timeParts = startTime.split(":");
                     int hour = Integer.parseInt(timeParts[0]);
                     int minute = Integer.parseInt(timeParts[1]);
                     Time time = new Time();
                     time.setHour(hour);
                     time.setMinute(minute);
-                    startTimes.add(time);
+                    startTimesList.add(time);
                 }
-                description.setStartTimes(startTimes);
+                description.setStartTimes(startTimesList);
             }
 
             // 13. ticketType
@@ -571,8 +487,8 @@ public class RestService {
     }
 
     public void getProductAvailability(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "Get product availability!");
         ProductAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductAvailabilityRequest.class);
+        AppLogger.info(TAG, String.format("Get product availability: %s", request.getProductId()));
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
@@ -665,9 +581,14 @@ public class RestService {
             AppLogger.error(TAG, String.format("Couldn't get tour by dates: %s", params), e);
         }
 
-        // Chuyển từ Map sang List
         List<ProductAvailabilityWithRatesResponse> productAvailabilityWithRatesResponses = new ArrayList<>(mergedAvailabilityMap.values());
-
+        productAvailabilityWithRatesResponses.sort(Comparator
+                .comparing((ProductAvailabilityWithRatesResponse p) -> p.getDate().getYear())
+                .thenComparing(p -> p.getDate().getMonth())
+                .thenComparing(p -> p.getDate().getDay())
+                .thenComparing(p -> p.getTime().getHour())
+                .thenComparing(p -> p.getTime().getMinute())
+        );
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         String response = new Gson().toJson(productAvailabilityWithRatesResponses);
         AppLogger.info(TAG, String.format("-> Response: %s", response));
