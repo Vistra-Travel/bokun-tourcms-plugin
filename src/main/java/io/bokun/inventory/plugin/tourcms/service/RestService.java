@@ -77,6 +77,10 @@ public class RestService {
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_PRIVATE_KEY, true));
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_FILTER_IDS, false));
 
+        definition.getParameters().add(asStringParameter(Configuration.SMTP_SERVER, true));
+        definition.getParameters().add(asStringParameter(Configuration.SMTP_USERNAME, true));
+        definition.getParameters().add(asStringParameter(Configuration.SMTP_PASSWORD, true));
+
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(new Gson().toJson(definition));
     }
