@@ -25,7 +25,7 @@ public class BookingCancelMessage {
     public String toString() {
         String cancelReason = tourCMSBooking.getCancelReason();
         if (cancelReason.equals("23")) {
-            cancelReason += " - Cancelled by agent (via website)";
+            cancelReason += " Cancelled by agent via website";
         }
         return "*\\[BOOKING CANCEL\\]* ❌\n" +
                 "\\- *Booking Id*: `" + escapeMarkdownV2(tourCMSBooking.getBookingId()) + "`\n" +
