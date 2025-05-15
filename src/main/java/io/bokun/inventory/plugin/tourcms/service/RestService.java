@@ -660,7 +660,7 @@ public class RestService {
         tourAvailableParams.putAll(counterMap);
         try {
             // Step 1. Check tour available
-             AppLogger.info(TAG, String.format("TourCMS - tourAvailableResponse %s", tourAvailableParams);
+            AppLogger.info(TAG, String.format("TourCMS - tourAvailableResponse %s", tourAvailableParams));
             String tourAvailableResponse = tourCmsClient.checkTourAvailability(tourAvailableParams);
             // AppLogger.info(TAG, String.format("TourCMS - tourAvailableResponse %s - JSON: %s", tourAvailableParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(tourAvailableResponse))));
             JsonNode components = Mapping.MAPPER.readTree(tourAvailableResponse).path("available_components").path("component");
@@ -737,7 +737,7 @@ public class RestService {
             }
 
             successfulReservation.setReservationConfirmationCode(bookingId);
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException| JAXBException e ) {
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException | JAXBException e) {
             AppLogger.error(TAG, String.format("Couldn't check tour availability: %s", e.getMessage()), e);
             successfulReservation.setReservationConfirmationCode(null);
             response.setSuccessfulReservation(successfulReservation);
