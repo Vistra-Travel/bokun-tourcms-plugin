@@ -720,14 +720,14 @@ public class RestService {
             customer.setEmail(request.getReservationData().getCustomerContact().getEmail());
             customer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
             customer.setSurname(request.getReservationData().getCustomerContact().getLastName());
-            customer.setAddress(request.getReservationData().getCustomerContact().getAddress());
-            customer.setCountry(request.getReservationData().getCustomerContact().getCountry());
-            customer.setPostcode(request.getReservationData().getCustomerContact().getPostCode());
+//            customer.setAddress(request.getReservationData().getCustomerContact().getAddress());
+//            customer.setCountry(request.getReservationData().getCustomerContact().getCountry());
+//            customer.setPostcode(request.getReservationData().getCustomerContact().getPostCode());
             customer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
-            customer.setPassportNumber(request.getReservationData().getCustomerContact().getPassportNumber());
-            DateYMD passportExpiry = request.getReservationData().getCustomerContact().getPassportExpiry();
-            String passport = String.format("%04d-%02d-%02d", passportExpiry.getYear(), passportExpiry.getMonth(), passportExpiry.getDay());
-            customer.setPassportExpiryDate(passport);
+//            customer.setPassportNumber(request.getReservationData().getCustomerContact().getPassportNumber());
+//            DateYMD passportExpiry = request.getReservationData().getCustomerContact().getPassportExpiry();
+//            String passport = String.format("%04d-%02d-%02d", passportExpiry.getYear(), passportExpiry.getMonth(), passportExpiry.getDay());
+//            customer.setPassportExpiryDate(passport);
 
             TourCMSCustomers customers = new TourCMSCustomers();
             customers.setCustomerList(Collections.singletonList(customer));
