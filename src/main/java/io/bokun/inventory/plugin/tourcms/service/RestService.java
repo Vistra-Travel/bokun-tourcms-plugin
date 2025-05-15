@@ -26,6 +26,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -849,50 +850,81 @@ public class RestService {
 
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
             String responseJson = new Gson().toJson(response);
-            AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
+            AppLogger.info(TAG, String.format("-> Return Response: %s", responseJson));
             exchange.getResponseSender().send(responseJson);
 
-            // Send notification
-            AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
-            EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
-            sender.sendEmailWithAttachment(
-                    request.getReservationData().getCustomerContact().getEmail(),
-                    "Booking Confirmation",
-                    "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                    request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
-                    bookingId,
-                    date,
-                    startTime,
-                    voucherUrl
-            );
-            AppLogger.info(TAG, "Sending booking success to webhook!");
-            Map<String, String> webhookBookingCreatedParams = new HashMap<>();
-            webhookBookingCreatedParams.put("platform", Main.PLATFORM);
-            webhookBookingCreatedParams.put("booking_confirmation_code", bookingId);
-            webhookBookingCreatedParams.put("first_name", request.getReservationData().getCustomerContact().getFirstName());
-            webhookBookingCreatedParams.put("last_name", request.getReservationData().getCustomerContact().getLastName());
-            webhookBookingCreatedParams.put("voucher_link", voucherUrl);
-            webhookBookingCreatedParams.put("phone_number", request.getReservationData().getCustomerContact().getPhone());
-            WebhookClient.sendWebhook(webhookBookingCreatedParams).whenComplete((result, error) -> {
-                AppLogger.info(TAG, "Sending booking success info to telegram");
-                BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(request, commitBookingResponse, error != null ? error.getMessage() : "Sent");
-                TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
+            // === Gửi Email: chạy bất đồng bộ ===
+            CompletableFuture.runAsync(() -> {
+                try {
+                    AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
+                    EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
+                    sender.sendEmailWithAttachment(
+                            request.getReservationData().getCustomerContact().getEmail(),
+                            "Booking Confirmation",
+                            "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                            request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
+                            bookingId,
+                            date,
+                            startTime,
+                            voucherUrl
+                    );
+                    AppLogger.info(TAG, "✅ Email sent!");
+                } catch (Exception e) {
+                    AppLogger.error(TAG, "❌ Failed to send email: " + e.getMessage(), e);
+                }
             });
 
-            AppLogger.info(TAG, "Updating customer info...");
-            HashMap<String, Object> showBookingParams = new HashMap<>();
-            showBookingParams.put("booking_id", bookingId);
-            showBookingParams.put("components_order_by_rate", 1);
-            String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
-            String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
-            TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
-            tourCMSCustomer.setCustomerId(customerId);
-            tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
-            tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
-            tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
-            tourCMSCustomer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
-            tourCmsClient.updateCustomer(tourCMSCustomer);
-            AppLogger.info(TAG, "Customer info updated!");
+            // === Gửi Webhook và Telegram: chạy bất đồng bộ ===
+            CompletableFuture.runAsync(() -> {
+                try {
+                    AppLogger.info(TAG, "Sending booking success to webhook!");
+                    Map<String, String> webhookBookingCreatedParams = new HashMap<>();
+                    webhookBookingCreatedParams.put("platform", Main.PLATFORM);
+                    webhookBookingCreatedParams.put("booking_confirmation_code", bookingId);
+                    webhookBookingCreatedParams.put("first_name", request.getReservationData().getCustomerContact().getFirstName());
+                    webhookBookingCreatedParams.put("last_name", request.getReservationData().getCustomerContact().getLastName());
+                    webhookBookingCreatedParams.put("voucher_link", voucherUrl);
+                    webhookBookingCreatedParams.put("phone_number", request.getReservationData().getCustomerContact().getPhone());
+
+                    WebhookClient.sendWebhook(webhookBookingCreatedParams)
+                            .whenComplete((result, error) -> {
+                                AppLogger.info(TAG, "Sending booking success info to telegram");
+                                BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(request, commitBookingResponse, error != null ? error.getMessage() : "Sent");
+                                TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
+                            });
+                } catch (Exception e) {
+                    AppLogger.error(TAG, "❌ Error during webhook/telegram notification: " + e.getMessage(), e);
+                }
+            });
+
+            // === Cập nhật thông tin khách hàng: chạy bất đồng bộ ===
+            CompletableFuture.runAsync(() -> {
+                try {
+                    AppLogger.info(TAG, "Updating customer info...");
+
+                    // Lấy thông tin booking
+                    HashMap<String, Object> showBookingParams = new HashMap<>();
+                    showBookingParams.put("booking_id", bookingId);
+                    showBookingParams.put("components_order_by_rate", 1);
+
+                    String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
+                    String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
+
+                    // Khởi tạo đối tượng customer để cập nhật
+                    TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
+                    tourCMSCustomer.setCustomerId(customerId);
+                    tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
+                    tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
+                    tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
+                    tourCMSCustomer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
+
+                    // Cập nhật thông tin
+                    tourCmsClient.updateCustomer(tourCMSCustomer);
+                    AppLogger.info(TAG, "✅ Customer info updated!");
+                } catch (Exception e) {
+                    AppLogger.error(TAG, "❌ Failed to update customer info: " + e.getMessage(), e);
+                }
+            });
         } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
@@ -1078,31 +1110,48 @@ public class RestService {
         AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
         exchange.getResponseSender().send(responseJson);
 
-        // Send notification
-        AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
-        EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
-        sender.sendEmailWithAttachment(
-                request.getReservationData().getCustomerContact().getEmail(),
-                "Booking Confirmation",
-                "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
-                bookingId,
-                date,
-                startTime,
-                voucherUrl
-        );
-        AppLogger.info(TAG, "Sending booking success to webhook!");
-        Map<String, String> webhookBookingCreatedParams = new HashMap<>();
-        webhookBookingCreatedParams.put("platform", Main.PLATFORM);
-        webhookBookingCreatedParams.put("booking_confirmation_code", bookingId);
-        webhookBookingCreatedParams.put("first_name", request.getReservationData().getCustomerContact().getFirstName());
-        webhookBookingCreatedParams.put("last_name", request.getReservationData().getCustomerContact().getLastName());
-        webhookBookingCreatedParams.put("voucher_link", voucherUrl);
-        webhookBookingCreatedParams.put("phone_number", request.getReservationData().getCustomerContact().getPhone());
-        WebhookClient.sendWebhook(webhookBookingCreatedParams).whenComplete((result, error) -> {
-            AppLogger.info(TAG, "Sending booking success info to telegram");
-            CreateAndConfirmBookingSuccessMessage bookingSuccessMessage = new CreateAndConfirmBookingSuccessMessage(request, commitBookingResponse, error != null ? error.getMessage() : "Sent");
-            TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
+        // === Gửi Email: chạy bất đồng bộ ===
+        CompletableFuture.runAsync(() -> {
+            try {
+                AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
+                EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
+                sender.sendEmailWithAttachment(
+                        request.getReservationData().getCustomerContact().getEmail(),
+                        "Booking Confirmation",
+                        "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                        request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
+                        bookingId,
+                        date,
+                        startTime,
+                        voucherUrl
+                );
+                AppLogger.info(TAG, "✅ Email sent!");
+            } catch (Exception e) {
+                AppLogger.error(TAG, "❌ Failed to send email: " + e.getMessage(), e);
+            }
+        });
+
+        // === Gửi Webhook và Telegram: chạy bất đồng bộ ===
+        CompletableFuture.runAsync(() -> {
+            try {
+                AppLogger.info(TAG, "Sending booking success to webhook!");
+                Map<String, String> webhookBookingCreatedParams = new HashMap<>();
+                webhookBookingCreatedParams.put("platform", Main.PLATFORM);
+                webhookBookingCreatedParams.put("booking_confirmation_code", bookingId);
+                webhookBookingCreatedParams.put("first_name", request.getReservationData().getCustomerContact().getFirstName());
+                webhookBookingCreatedParams.put("last_name", request.getReservationData().getCustomerContact().getLastName());
+                webhookBookingCreatedParams.put("voucher_link", voucherUrl);
+                webhookBookingCreatedParams.put("phone_number", request.getReservationData().getCustomerContact().getPhone());
+
+                WebhookClient.sendWebhook(webhookBookingCreatedParams)
+                        .whenComplete((result, error) -> {
+                            AppLogger.info(TAG, "Sending booking success info to telegram");
+                            CreateAndConfirmBookingSuccessMessage bookingSuccessMessage = new CreateAndConfirmBookingSuccessMessage(request, commitBookingResponse, error != null ? error.getMessage() : "Sent");
+                            TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
+                        });
+            } catch (Exception e) {
+                AppLogger.error(TAG, "❌ Error during webhook/telegram notification: " + e.getMessage(), e);
+            }
         });
     }
 
