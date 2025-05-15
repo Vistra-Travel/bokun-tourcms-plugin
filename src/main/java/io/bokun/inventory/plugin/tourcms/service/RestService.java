@@ -822,10 +822,6 @@ public class RestService {
         ConfirmBookingResponse response = new ConfirmBookingResponse();
         processBookingSourceInfo(request.getReservationData().getBookingSource());
 
-        HashMap<String, Object> showBookingParams = new HashMap<>();
-        showBookingParams.put("booking_id", request.getReservationConfirmationCode());
-        showBookingParams.put("components_order_by_rate", 1);
-
         TourCMSBooking booking = new TourCMSBooking();
         booking.setBookingId(request.getReservationConfirmationCode());
         booking.setSuppressEmail(1); // Ignore send email to customer from TourCMS
@@ -884,6 +880,9 @@ public class RestService {
             });
 
             AppLogger.info(TAG, "Updating customer info...");
+            HashMap<String, Object> showBookingParams = new HashMap<>();
+            showBookingParams.put("booking_id", bookingId);
+            showBookingParams.put("components_order_by_rate", 1);
             String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
             String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
             TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
