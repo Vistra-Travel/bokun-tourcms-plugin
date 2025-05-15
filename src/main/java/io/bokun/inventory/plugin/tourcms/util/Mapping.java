@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 public class Mapping {
     private static final String TAG = Mapping.class.getSimpleName();
     public static final ObjectMapper MAPPER = new ObjectMapper();
+    public static final String DEFAULT_RATE_ID = "standard_rate";
+    public static final String DEFAULT_RATE_NAME = "Standard Rate";
     private static final Rate DEFAULT_RATE = new Rate().id("standard_rate").label("Standard Rate");
 
     public static List<PricingCategory> parsePriceCategoryFromTourNode(JsonNode node) {
@@ -250,5 +252,19 @@ public class Mapping {
                 .collect(Collectors.toList());
 
         return new ProductRateMapping(rates, startTimes, priceCategories);
+    }
+
+    public static String[] splitFullName(String fullName) {
+        if (fullName == null || fullName.trim().isEmpty()) {
+            return new String[]{"", ""};
+        }
+        String[] parts = fullName.trim().split("\\s+");
+        if (parts.length == 1) {
+            return new String[]{parts[0], ""};
+        }
+        String firstName = parts[0];
+        String surname = String.join(" ", Arrays.copyOfRange(parts, 1, parts.length));
+
+        return new String[]{firstName, surname};
     }
 }

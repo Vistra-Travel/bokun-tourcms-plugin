@@ -6,6 +6,9 @@ import javax.xml.bind.annotation.*;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class TourCMSBooking {
 
+    @XmlElement(name = "booking_id")
+    private String bookingId;
+
     @XmlElement(name = "total_customers")
     private int totalCustomers;
 
@@ -21,11 +24,25 @@ public class TourCMSBooking {
     @XmlElement(name = "promo_membership")
     private String promoMembership;
 
+    @XmlElement(name = "note")
+    private String note;
+
+    @XmlElement(name = "cancel_reason")
+    private String cancelReason;
+
     @XmlElement(name = "components")
     private TourCMSComponents components;
 
     @XmlElement(name = "customers")
     private TourCMSCustomers customers;
+
+    public String getBookingId() {
+        return bookingId;
+    }
+
+    public void setBookingId(String bookingId) {
+        this.bookingId = bookingId;
+    }
 
     public int getTotalCustomers() {
         return totalCustomers;
@@ -73,6 +90,22 @@ public class TourCMSBooking {
 
     public void setComponents(TourCMSComponents components) {
         this.components = components;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
+    }
+
+    public String getCancelReason() {
+        return cancelReason;
+    }
+
+    public void setCancelReason(String cancelReason) {
+        this.cancelReason = cancelReason;
     }
 
     public TourCMSCustomers getCustomers() {

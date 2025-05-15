@@ -9,12 +9,13 @@ import com.squareup.okhttp.OkHttpClient;
 import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.tourcms.Configuration;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
-import io.bokun.inventory.plugin.tourcms.model.ProductRateMapping;
+import io.bokun.inventory.plugin.tourcms.model.*;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 import io.bokun.inventory.plugin.tourcms.util.Mapping;
 import io.undertow.server.HttpServerExchange;
 
 import javax.annotation.Nonnull;
+import javax.xml.bind.JAXBException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.InvalidKeyException;
@@ -65,8 +66,8 @@ public class RestService {
         definition.getCapabilities().add(AVAILABILITY);
 
         // below entry should be commented out if the plugin only supports reservation & confirmation as a single step
-//        definition.getCapabilities().add(RESERVATIONS);
-//        definition.getCapabilities().add(RESERVATION_CANCELLATION);
+        definition.getCapabilities().add(RESERVATIONS);
+        definition.getCapabilities().add(RESERVATION_CANCELLATION);
         // definition.getCapabilities().add(AMENDMENT);
 
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_ACCOUNT_ID, true));
@@ -623,14 +624,6 @@ public class RestService {
         exchange.getResponseSender().send(response);
     }
 
-    /**
-     * This call secures necessary resource(s), such as activity time slot which can later become a booking. The reservation should be held for some
-     * limited time, and reverted back to being available if the booking is not confirmed.
-     * <p>
-     * Only implement this method if {@link PluginCapability#RESERVATIONS} is among capabilities of your {@link PluginDefinition}.
-     * Otherwise you are only required to implement {@link #createAndConfirmBooking(HttpServerExchange)} which does both
-     * reservation and confirmation, this method can be left empty or non-overridden.
-     */
     public void createReservation(HttpServerExchange exchange) {
         ReservationRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ReservationRequest.class);
         AppLogger.info(TAG, String.format("Create reservation: %s", request.getReservationData()));
@@ -640,17 +633,124 @@ public class RestService {
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
         TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
-        // At this point you might want to call your external system to do the actual reservation and return data back.
-        // Code below just provides some mocks.
-
+        // Define response
         ReservationResponse response = new ReservationResponse();
-        SuccessfulReservation reservation = new SuccessfulReservation();
-        reservation.setReservationConfirmationCode(UUID.randomUUID().toString());
-        response.setSuccessfulReservation(reservation);
+        SuccessfulReservation successfulReservation = new SuccessfulReservation();
 
+        // Define query
+        String productId = request.getReservationData().getProductId();
+        String date = String.format("%04d-%02d-%02d", request.getReservationData().getDate().getYear(), request.getReservationData().getDate().getMonth(), request.getReservationData().getDate().getDay());
+        String startTime = String.format("%02d-%02d", request.getReservationData().getTime().getHour(), request.getReservationData().getTime().getMinute());
+
+        HashMap<String, Object> tourAvailableParams = new HashMap<>();
+        tourAvailableParams.put("id", productId);
+        tourAvailableParams.put("date", date);
+        tourAvailableParams.put("start_time", startTime);
+        // Count people by price category
+        String finalRateId = request.getReservationData().getReservations().get(0).getRateId();
+        int totalCustomers = 0;
+        HashMap<String, Integer> counterMap = new HashMap<>();
+        for (Reservation reservation : request.getReservationData().getReservations()) {
+            for (Passenger passenger : reservation.getPassengers()) {
+                totalCustomers++;
+                String pricingCategoryId = passenger.getPricingCategoryId();
+                counterMap.put(pricingCategoryId, counterMap.getOrDefault(pricingCategoryId, 0) + 1);
+            }
+        }
+        counterMap.forEach((key, value) -> {
+            tourAvailableParams.put("key", value);
+        });
+        try {
+            // Step 1. Check tour available
+            String tourAvailableResponse = tourCmsClient.checkTourAvailability(tourAvailableParams);
+            JsonNode components = Mapping.MAPPER.readTree(tourAvailableResponse).path("available_components").path("component");
+            if (components.isMissingNode() || !components.elements().hasNext()) {
+                AppLogger.warn(TAG, "Components is missing OR do not has next!");
+                successfulReservation.setReservationConfirmationCode(null);
+                response.setSuccessfulReservation(successfulReservation);
+                exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                exchange.getResponseSender().send(new Gson().toJson(response));
+                return;
+            }
+
+            List<JsonNode> componentsList = components.isArray() ?
+                    ImmutableList.copyOf(components) :
+                    ImmutableList.of(components);
+
+            JsonNode foundComponent = componentsList.stream()
+                    .filter(c -> c.get("supplier_note").asText().equals(finalRateId))
+                    .findFirst()
+                    .orElseGet(() -> componentsList.isEmpty() ? null : componentsList.get(0));
+
+            if (foundComponent == null) {
+                AppLogger.warn(TAG, "Component is NULL!");
+                successfulReservation.setReservationConfirmationCode(null);
+                response.setSuccessfulReservation(successfulReservation);
+                exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                exchange.getResponseSender().send(new Gson().toJson(response));
+                return;
+            }
+
+            String componentKey = foundComponent.path("component_key").asText();
+            AppLogger.info(TAG, String.format("Found component: %s", componentKey));
+
+            // Step 2. Create tm
+            TourCMSBooking tourCMSBooking = new TourCMSBooking();
+            tourCMSBooking.setTotalCustomers(totalCustomers);
+            // booking.setBookingKey("");
+
+            TourCMSComponent tourCMSComponent = new TourCMSComponent();
+            tourCMSComponent.setComponentKey(componentKey);
+
+            TourCMSComponents tourCMSComponents = new TourCMSComponents();
+            tourCMSComponents.setComponentList(Collections.singletonList(tourCMSComponent));
+            tourCMSBooking.setComponents(tourCMSComponents);
+
+            TourCMSCustomer customer = new TourCMSCustomer();
+            String[] names = Mapping.splitFullName(request.getReservationData().getBookingSource().getExtranetUser().getFullName());
+            customer.setEmail(request.getReservationData().getBookingSource().getExtranetUser().getEmail());
+            customer.setFirstName(names[0]);
+            customer.setSurname(names[1]);
+
+            TourCMSCustomers customers = new TourCMSCustomers();
+            customers.setCustomerList(Collections.singletonList(customer));
+            tourCMSBooking.setCustomers(customers);
+            String temporaryBookingResponse = tourCmsClient.createTemporaryBooking(tourCMSBooking);
+            JsonNode bookingNode = Mapping.MAPPER.readTree(temporaryBookingResponse).path("booking");
+            if (bookingNode.isMissingNode() || !bookingNode.elements().hasNext()) {
+                AppLogger.warn(TAG, "Booking is missing OR do not has next!");
+                successfulReservation.setReservationConfirmationCode(null);
+                response.setSuccessfulReservation(successfulReservation);
+                exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                exchange.getResponseSender().send(new Gson().toJson(response));
+                return;
+            }
+
+            String bookingId = bookingNode.get("booking_id").asText();
+            if (bookingId == null || bookingId.isEmpty()) {
+                AppLogger.warn(TAG, "Booking ID is NULL OR Empty!");
+                successfulReservation.setReservationConfirmationCode(null);
+                response.setSuccessfulReservation(successfulReservation);
+                exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                exchange.getResponseSender().send(new Gson().toJson(response));
+                return;
+            }
+
+            successfulReservation.setReservationConfirmationCode(bookingId);
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException| JAXBException e ) {
+            AppLogger.error(TAG, String.format("Couldn't check tour availability: %s", e.getMessage()), e);
+            successfulReservation.setReservationConfirmationCode(null);
+            response.setSuccessfulReservation(successfulReservation);
+            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(new Gson().toJson(response));
+            return;
+        }
+
+        response.setSuccessfulReservation(successfulReservation);
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(response));
-        AppLogger.info(TAG, "Out ::createReservation");
+        String responseJson = new Gson().toJson(response);
+        AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
+        exchange.getResponseSender().send(responseJson);
     }
 
     /**
@@ -659,22 +759,25 @@ public class RestService {
      * Only implement this method if {@link PluginCapability#RESERVATIONS} and {@link PluginCapability#RESERVATION_CANCELLATION} are among
      * capabilities of your {@link PluginDefinition}.
      */
-    public void cancelReservation(HttpServerExchange exchange) {
+    public void cancelReservation(HttpServerExchange exchange) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         CancelReservationRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CancelReservationRequest.class);
         AppLogger.info(TAG, String.format("Cancel reservation: %s - %s", request.getAgentCode(), request.getReservationConfirmationCode()));
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
-        // At this point you might want to call your external system to do the actual reservation and return data back.
-        // Code below just provides some mocks.
+        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+
+        tourCmsClient.deleteTemporaryBooking(request.getReservationConfirmationCode());
 
         CancelReservationResponse response = new CancelReservationResponse();
         SuccessfulReservationCancellation greatSuccess = new SuccessfulReservationCancellation();
         response.setSuccessfulReservationCancellation(greatSuccess);
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(response));
-        AppLogger.info(TAG, "Out ::cancelReservation");
+        String responseJson = new Gson().toJson(response);
+        AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
+        exchange.getResponseSender().send(responseJson);
     }
 
     /**
@@ -690,25 +793,43 @@ public class RestService {
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
-        // At this point you might want to call your external system to do the actual confirmation and return data back.
-        // Code below just provides some mocks.
-
-        processBookingSourceInfo(request.getReservationData().getBookingSource());
-        String confirmationCode = UUID.randomUUID().toString();
+        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
         ConfirmBookingResponse response = new ConfirmBookingResponse();
-        SuccessfulBooking successfulBooking = new SuccessfulBooking();
-        successfulBooking.setBookingConfirmationCode(confirmationCode);
-        Ticket ticket = new Ticket();
-        QrTicket qrTicket = new QrTicket();
-        qrTicket.setTicketBarcode(confirmationCode + "_ticket");
-        ticket.setQrTicket(qrTicket);
-        successfulBooking.setBookingTicket(ticket);
-        response.setSuccessfulBooking(successfulBooking);
+        processBookingSourceInfo(request.getReservationData().getBookingSource());
 
-        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(response));
-        AppLogger.info(TAG, "Out ::confirmBooking");
+        TourCMSBooking booking = new TourCMSBooking();
+        booking.setBookingId(request.getReservationConfirmationCode());
+
+        try {
+            String commitBookingResponse = tourCmsClient.commitBooking(booking);
+            String bookingUuid = Mapping.MAPPER.readTree(commitBookingResponse).path("booking_uuid").asText();
+            if (bookingUuid == null || bookingUuid.isEmpty()) {
+                AppLogger.warn(TAG, "Booking UUID is NULL OR Empty!");
+                exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                exchange.getResponseSender().send(new Gson().toJson(response));
+                return;
+            }
+
+            SuccessfulBooking successfulBooking = new SuccessfulBooking();
+            successfulBooking.setBookingConfirmationCode(bookingUuid);
+            Ticket ticket = new Ticket();
+            QrTicket qrTicket = new QrTicket();
+            qrTicket.setTicketBarcode(bookingUuid + "_ticket");
+            ticket.setQrTicket(qrTicket);
+            successfulBooking.setBookingTicket(ticket);
+            response.setSuccessfulBooking(successfulBooking);
+
+            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+            String responseJson = new Gson().toJson(response);
+            AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
+            exchange.getResponseSender().send(responseJson);
+        } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);
+            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(new Gson().toJson(response));
+        }
     }
 
     public void amendBooking(HttpServerExchange exchange) {
@@ -803,23 +924,28 @@ public class RestService {
      * If your system does not support booking cancellation, one of the current workarounds is to create a cancellation policy (on the Bokun end)
      * which offers no refund. Then a cancellation does not have any monetary effect.
      */
-    public void cancelBooking(HttpServerExchange exchange) {
+    public void cancelBooking(HttpServerExchange exchange) throws JAXBException, IOException, NoSuchAlgorithmException, InvalidKeyException {
         AppLogger.info(TAG, "Cancel booking");
-
         CancelBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CancelBookingRequest.class);
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
 
-        // At this point you might want to call your external system to do the actual booking cancellation and return data back.
-        // Code below just provides some mocks.
+        TourCMSBooking booking = new TourCMSBooking();
+        booking.setBookingId(request.getBookingConfirmationCode());
+        booking.setNote("Cancel booking by BóKun!");
+        booking.setCancelReason("23");
+
+        tourCmsClient.cancelBooking(booking);
 
         CancelBookingResponse response = new CancelBookingResponse();
         response.setSuccessfulCancellation(new SuccessfulCancellation());
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(response));
-        AppLogger.info(TAG, "Out ::cancelBooking");
+        String responseJson = new Gson().toJson(response);
+        AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
+        exchange.getResponseSender().send(responseJson);
     }
 }

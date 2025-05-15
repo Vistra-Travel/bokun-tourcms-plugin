@@ -240,6 +240,50 @@ public class TourCmsClient {
         }
     }
 
+    public String commitBooking(TourCMSBooking booking) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
+        JAXBContext context = JAXBContext.newInstance(TourCMSBooking.class);
+        Marshaller marshaller = context.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+
+        StringWriter stringWriter = new StringWriter();
+        marshaller.marshal(booking, stringWriter);
+
+        String bookingXml = stringWriter.toString();
+        AppLogger.info(TAG, "Generated XML for Booking:\n" + bookingXml);
+
+        try (Response response = buildRequest("/c/booking/new/commit.xml", "POST", null, bookingXml)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to commit booking: " + response.message());
+            }
+
+            String result = resultResponse(response);
+            AppLogger.info(TAG, "Booking commit successfully: " + result);
+            return result;
+        }
+    }
+
+    public String cancelBooking(TourCMSBooking booking) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
+        JAXBContext context = JAXBContext.newInstance(TourCMSBooking.class);
+        Marshaller marshaller = context.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+
+        StringWriter stringWriter = new StringWriter();
+        marshaller.marshal(booking, stringWriter);
+
+        String bookingXml = stringWriter.toString();
+        AppLogger.info(TAG, "Generated XML for Booking:\n" + bookingXml);
+
+        try (Response response = buildRequest("/c/booking/cancel.xml", "POST", null, bookingXml)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to cancel booking: " + response.message());
+            }
+
+            String result = resultResponse(response);
+            AppLogger.info(TAG, "Booking cancel successfully: " + result);
+            return result;
+        }
+    }
+
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         TourCmsClient tourCmsClient = new TourCmsClient();
 
