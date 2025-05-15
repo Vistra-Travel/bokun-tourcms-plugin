@@ -74,7 +74,8 @@ public class RestService {
 
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_ACCOUNT_ID, true));
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_CHANNEL_ID, true));
-        definition.getParameters().add(asStringParameter(Configuration.TOURCMS_PRIVATE_KEY, true));
+
+        definition.getParameters().add(asStringParameter(Configuration.TOURCMS_PRIVATE_KEY, false));
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_FILTER_IDS, false));
 
         definition.getParameters().add(asStringParameter(Configuration.SMTP_SERVER, true));
@@ -92,7 +93,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         List<BasicProductInfo> products = new ArrayList<>();
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
@@ -137,7 +138,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         String id = request.getExternalId();
         if (id == null || id.isEmpty()) {
@@ -412,7 +413,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         DatePeriod range = request.getRange();
         long requiredCapacity = request.getRequiredCapacity();
@@ -496,7 +497,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         DatePeriod range = request.getRange();
         String productId = request.getProductId();
@@ -637,7 +638,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         // Define response
         ReservationResponse response = new ReservationResponse();
@@ -777,7 +778,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         tourCmsClient.deleteTemporaryBooking(request.getReservationConfirmationCode());
 
@@ -798,7 +799,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         ConfirmBookingResponse response = new ConfirmBookingResponse();
         processBookingSourceInfo(request.getReservationData().getBookingSource());
@@ -947,7 +948,7 @@ public class RestService {
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.apiKey);
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
         TourCMSBooking booking = new TourCMSBooking();
         booking.setBookingId(request.getBookingConfirmationCode());

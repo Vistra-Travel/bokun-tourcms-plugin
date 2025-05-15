@@ -37,4 +37,13 @@ public final class Configuration {
         }
         return configuration;
     }
+
+    public String getTourcmsPrivateKey() {
+        String tourcmsPrivateKey = System.getenv("TOURCMS_API_KEY");
+        if (tourcmsPrivateKey == null) {
+            return apiKey;
+        }
+
+        return tourcmsPrivateKey;
+    }
 }
