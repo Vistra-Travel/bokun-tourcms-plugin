@@ -1,5 +1,6 @@
 package io.bokun.inventory.plugin.tourcms.api;
 
+import io.bokun.inventory.plugin.api.rest.ConfirmBookingRequest;
 import io.bokun.inventory.plugin.tourcms.model.BookingCancelMessage;
 import io.bokun.inventory.plugin.tourcms.model.BookingSuccessMessage;
 import io.bokun.inventory.plugin.tourcms.model.TourCMSBooking;
@@ -129,7 +130,7 @@ public class TelegramClient {
             return;
         }
 
-        BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(jsonResponse);
+        BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(new ConfirmBookingRequest(), jsonResponse);
         TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString())
                 .whenComplete((result, error) -> {
                     if (error != null) {
