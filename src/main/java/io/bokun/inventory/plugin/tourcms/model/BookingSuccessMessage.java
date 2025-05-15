@@ -14,6 +14,7 @@ public class BookingSuccessMessage {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     protected ConfirmBookingRequest request;
+    protected String webhookStatus;
 
     protected String bookingId;
     protected String bookingUuid;
@@ -50,8 +51,9 @@ public class BookingSuccessMessage {
         protected String voucherLabel;
     }
 
-    public BookingSuccessMessage(ConfirmBookingRequest request, String json) {
+    public BookingSuccessMessage(ConfirmBookingRequest request, String json, String webhookStatus) {
         this.request = request;
+        this.webhookStatus = webhookStatus;
         try {
             JsonNode root = MAPPER.readTree(json);
 
@@ -145,6 +147,8 @@ public class BookingSuccessMessage {
 //                body.append("\\- *Voucher*: [").append(escapeMarkdownV2(component.voucherLabel)).append("](").append(escapeMarkdownV2(component.voucherLink)).append(")\n");
 //            }
         }
+
+        body.append("\\- *Webhook message*: ").append(escapeMarkdownV2(webhookStatus)).append("\n");
 
         return body.toString();
     }

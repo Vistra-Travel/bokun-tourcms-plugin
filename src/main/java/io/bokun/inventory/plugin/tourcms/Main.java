@@ -18,6 +18,7 @@ import static com.google.inject.Scopes.*;
 public class Main {
 
     private static final String TAG = Main.class.getSimpleName();
+    public static final String PLATFORM = "BOKUN_TOURCMS_PLUGIN";
 
     private static final String ENVIRONMENT_PREFIX = "TOURCMS_";
     private static final String DEFAULT_HOST = "0.0.0.0";

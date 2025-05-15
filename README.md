@@ -80,3 +80,16 @@ curl -X POST http://localhost:9090/product/getAvailability \
    ]
  }'
 ```
+
+```
+curl -X POST https://hook.eu1.make.com/wb7kjoyhpp1nvpa5dkhcqlhrub09h5es \
+     -H "Content-Type: application/json" \
+     -d '{
+          "platform": "BOKUN_TOURCMS_PLUGIN",
+          "booking_confirmation_code": "123456789",
+          "first_name": "John",
+          "last_name": "Doe",
+          "voucher_link": "https://example.com/voucher/12345",
+          "phone_number": "+84987654321"
+     }'
+```

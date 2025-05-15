@@ -8,8 +8,10 @@ import com.google.inject.Inject;
 import com.squareup.okhttp.OkHttpClient;
 import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.tourcms.Configuration;
+import io.bokun.inventory.plugin.tourcms.Main;
 import io.bokun.inventory.plugin.tourcms.api.TelegramClient;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
+import io.bokun.inventory.plugin.tourcms.api.WebhookClient;
 import io.bokun.inventory.plugin.tourcms.model.*;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 import io.bokun.inventory.plugin.tourcms.util.EmailSender;
@@ -874,9 +876,19 @@ public class RestService {
                     startTime,
                     voucherUrl
             );
-            AppLogger.info(TAG, "Sending booking success info to telegram");
-            BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(request, commitBookingResponse);
-            TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
+            AppLogger.info(TAG, "Sending booking success to webhook!");
+            Map<String, String> webhookBookingCreatedParams = new HashMap<>();
+            webhookBookingCreatedParams.put("platform", Main.PLATFORM);
+            webhookBookingCreatedParams.put("booking_confirmation_code", bookingId);
+            webhookBookingCreatedParams.put("first_name", request.getReservationData().getCustomerContact().getFirstName());
+            webhookBookingCreatedParams.put("last_name", request.getReservationData().getCustomerContact().getLastName());
+            webhookBookingCreatedParams.put("voucher_link", voucherUrl);
+            webhookBookingCreatedParams.put("phone_number", request.getReservationData().getCustomerContact().getPhone());
+            WebhookClient.sendWebhook(webhookBookingCreatedParams).whenComplete((result, error) -> {
+                AppLogger.info(TAG, "Sending booking success info to telegram");
+                BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(request, commitBookingResponse, error != null ? error.getMessage() : "Sent");
+                TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
+            });
         } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
