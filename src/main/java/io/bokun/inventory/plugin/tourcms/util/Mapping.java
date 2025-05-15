@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
+import io.bokun.inventory.plugin.tourcms.model.ProductRateMapping;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -155,7 +156,7 @@ public class Mapping {
         }
     }
 
-    public static HashMap<String, Object> getProductRates(String id, TourCmsClient tourCmsClient) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public static ProductRateMapping getProductRates(String id, TourCmsClient tourCmsClient) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         Map<String, Object> departuresParams = new HashMap<>();
         departuresParams.put("id", id);
         departuresParams.put("per_page", 30);
@@ -164,8 +165,7 @@ public class Mapping {
         return parseProductRates(tourShowResponse, tourDeparturesResponse);
     }
 
-    public static HashMap<String, Object> parseProductRates(String tourShowResponse, String tourDeparturesResponse) throws JsonProcessingException {
-        HashMap<String, Object> result = new HashMap<>();
+    public static ProductRateMapping parseProductRates(String tourShowResponse, String tourDeparturesResponse) throws JsonProcessingException {
         List<Rate> rates = new ArrayList<>();
         List<String> startTimes = new ArrayList<>();
         List<PricingCategory> priceCategories = new ArrayList<>();
@@ -174,9 +174,11 @@ public class Mapping {
         JsonNode tourDeparturesNode = Mapping.MAPPER.readTree(tourDeparturesResponse);
         JsonNode newBookingRates = tourShowNode.path("tour").path("new_booking").path("people_selection").path("rate");
         JsonNode tourDepartures = tourDeparturesNode.path("tour").path("dates_and_prices").path("departure");
+
         List<JsonNode> newBookingRatesList = newBookingRates.isArray() ?
                 ImmutableList.copyOf(newBookingRates) :
                 ImmutableList.of(newBookingRates);
+
         List<JsonNode> tourDeparturesList = tourDepartures.isArray() ?
                 ImmutableList.copyOf(tourDepartures) :
                 ImmutableList.of(tourDepartures);
@@ -204,29 +206,27 @@ public class Mapping {
 
                 JsonNode mainPriceNode = departure.path("main_price");
                 JsonNode extraPriceNode = departure.path("extra_rates").path("rate");
+
                 List<JsonNode> mainPriceNodeArray = mainPriceNode.isArray() ?
                         new ArrayList<>(ImmutableList.copyOf(mainPriceNode)) :
                         new ArrayList<>(ImmutableList.of(mainPriceNode));
                 List<JsonNode> extraPriceNodeArray = extraPriceNode.isArray() ?
                         ImmutableList.copyOf(extraPriceNode) :
                         ImmutableList.of(extraPriceNode);
+
                 mainPriceNodeArray.addAll(extraPriceNodeArray);
                 priceCategories = Mapping.parsePriceCategoryFromNodeList(mainPriceNodeArray);
             }
         }
+
         if (rates.isEmpty()) {
-            rates.addAll(ImmutableList.of(
-                    DEFAULT_RATE
-            ));
+            rates.addAll(ImmutableList.of(DEFAULT_RATE));
         }
 
         startTimes = startTimes.stream()
                 .filter(item -> item != null && !item.trim().isEmpty())
                 .collect(Collectors.toList());
 
-        result.put("rates", rates);
-        result.put("startTimes", startTimes);
-        result.put("priceCategories", priceCategories);
-        return result;
+        return new ProductRateMapping(rates, startTimes, priceCategories);
     }
 }

@@ -11,6 +11,7 @@ import com.squareup.okhttp.OkHttpClient;
 import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.tourcms.Configuration;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
+import io.bokun.inventory.plugin.tourcms.model.ProductRateMapping;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 import io.bokun.inventory.plugin.tourcms.util.Mapping;
 import io.undertow.server.HttpServerExchange;
@@ -149,6 +150,8 @@ public class RestService {
             String tourShowResponse = tourCmsClient.getTour(id, true);
 //            AppLogger.info(TAG, String.format("TourCMS - getTour ID %s JSON: %s", id, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(productJson))));
             String tourDeparturesResponse = tourCmsClient.getTourDepartures(tourDeparturesParams);
+            ProductRateMapping productRateMapping = Mapping.parseProductRates(tourShowResponse, tourDeparturesResponse);
+            List<String> startTimes = productRateMapping.getStartTimes();
 
             JsonNode productNode = Mapping.MAPPER.readTree(tourShowResponse);
             JsonNode product = productNode.get("tour");
@@ -161,18 +164,10 @@ public class RestService {
             // 3. description
             description.setDescription(product.get("shortdesc").asText());
 
-
-
-            HashMap<String, Object> rateHelperResult = Mapping.parseProductRates(tourShowResponse, tourDeparturesResponse);
-            List<Rate> rates = (List<Rate>) rateHelperResult.getOrDefault("rates", new ArrayList<>());
-            List<String> startTimes = (List<String>) rateHelperResult.getOrDefault("startTimes", new ArrayList<>());
-            List<PricingCategory> pricingCategories = (List<PricingCategory>) rateHelperResult.getOrDefault("priceCategories", new ArrayList<>());
-
-
             // 3. pricingCategories
-            description.setPricingCategories(pricingCategories);
+            description.setPricingCategories(productRateMapping.getPriceCategories());
             // 4. rates
-            description.setRates(rates);
+            description.setRates(productRateMapping.getRates());
             // 5. bookingType
             if (!startTimes.isEmpty()) {
                 description.setBookingType(BookingType.DATE_AND_TIME);
