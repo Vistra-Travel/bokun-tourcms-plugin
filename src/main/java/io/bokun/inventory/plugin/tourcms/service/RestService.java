@@ -955,32 +955,156 @@ public class RestService {
         }
     }
 
-    public void createAndConfirmBooking(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "In ::createAndConfirmBooking");          // should never happen
-//        throw new UnsupportedOperationException();
-
+    public void createAndConfirmBooking(HttpServerExchange exchange) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
+        AppLogger.info(TAG, "Create and confirm booking");
         CreateConfirmBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CreateConfirmBookingRequest.class);
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
+
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
-        // At this point you might want to call your external system to do the actual reserve&confirm and return data back.
-        // Code below just provides some mocks.
+        // Define query
+        String productId = request.getReservationData().getProductId();
+        String date = String.format("%04d-%02d-%02d", request.getReservationData().getDate().getYear(), request.getReservationData().getDate().getMonth(), request.getReservationData().getDate().getDay());
+        String startTime = String.format("%02d:%02d", request.getReservationData().getTime().getHour(), request.getReservationData().getTime().getMinute());
 
-        processBookingSourceInfo(request.getReservationData().getBookingSource());
-        String confirmationCode = UUID.randomUUID().toString();
+        HashMap<String, Object> tourAvailableParams = new HashMap<>();
+        tourAvailableParams.put("id", productId);
+        tourAvailableParams.put("date", date);
+        tourAvailableParams.put("start_time", startTime);
+        // Count people by price category
+        String finalRateId = request.getReservationData().getReservations().get(0).getRateId();
+        int totalCustomers = 0;
+        HashMap<String, Integer> counterMap = new HashMap<>();
+        for (Reservation reservation : request.getReservationData().getReservations()) {
+            for (Passenger passenger : reservation.getPassengers()) {
+                totalCustomers++;
+                String pricingCategoryId = passenger.getPricingCategoryId();
+                counterMap.put(pricingCategoryId, counterMap.getOrDefault(pricingCategoryId, 0) + 1);
+            }
+        }
+        tourAvailableParams.putAll(counterMap);
 
+        AppLogger.info(TAG, "Step 1: Creating reservation...");
+
+        // Step 1. Check tour available
+        AppLogger.info(TAG, String.format("TourCMS - tourAvailableResponse %s", tourAvailableParams));
+        String tourAvailableResponse = tourCmsClient.checkTourAvailability(tourAvailableParams);
+        // AppLogger.info(TAG, String.format("TourCMS - tourAvailableResponse %s - JSON: %s", tourAvailableParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(tourAvailableResponse))));
+        JsonNode components = Mapping.MAPPER.readTree(tourAvailableResponse).path("available_components").path("component");
+        if (components.isMissingNode() || !components.elements().hasNext()) {
+            AppLogger.warn(TAG, "Components is missing OR do not has next!");
+            throw new UnsupportedOperationException();
+        }
+
+        List<JsonNode> componentsList = components.isArray() ?
+                ImmutableList.copyOf(components) :
+                ImmutableList.of(components);
+
+        JsonNode foundComponent = componentsList.stream()
+                .filter(c -> c.get("supplier_note").asText().equals(finalRateId))
+                .findFirst()
+                .orElseGet(() -> componentsList.isEmpty() ? null : componentsList.get(0));
+
+        if (foundComponent == null) {
+            AppLogger.warn(TAG, "Component is NULL!");
+            throw new UnsupportedOperationException();
+        }
+
+        String componentKey = foundComponent.path("component_key").asText();
+        AppLogger.info(TAG, String.format("Found component: %s", componentKey));
+
+        TourCMSBooking tourCMSBooking = new TourCMSBooking();
+        tourCMSBooking.setTotalCustomers(totalCustomers);
+
+        TourCMSComponent tourCMSComponent = new TourCMSComponent();
+        tourCMSComponent.setComponentKey(componentKey);
+
+        TourCMSComponents tourCMSComponents = new TourCMSComponents();
+        tourCMSComponents.setComponentList(Collections.singletonList(tourCMSComponent));
+        tourCMSBooking.setComponents(tourCMSComponents);
+
+        TourCMSCustomer customer = new TourCMSCustomer();
+        customer.setEmail(request.getReservationData().getCustomerContact().getEmail());
+        customer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
+        customer.setSurname(request.getReservationData().getCustomerContact().getLastName());
+        customer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
+
+        TourCMSCustomers customers = new TourCMSCustomers();
+        customers.setCustomerList(Collections.singletonList(customer));
+        tourCMSBooking.setCustomers(customers);
+        String temporaryBookingResponse = tourCmsClient.createTemporaryBooking(tourCMSBooking);
+        JsonNode bookingNode = Mapping.MAPPER.readTree(temporaryBookingResponse).path("booking");
+        if (bookingNode.isMissingNode() || !bookingNode.elements().hasNext()) {
+            AppLogger.warn(TAG, "Booking is missing OR do not has next!");
+            throw new UnsupportedOperationException();
+        }
+
+        String bookingId = bookingNode.path("booking_id").asText();
+        if (bookingId == null || bookingId.isEmpty()) {
+            AppLogger.warn(TAG, "Booking ID is NULL OR Empty!");
+            throw new UnsupportedOperationException();
+        }
+
+        // Commit booking
+        AppLogger.info(TAG, "Step 2: Commit booking...");
         ConfirmBookingResponse response = new ConfirmBookingResponse();
+        processBookingSourceInfo(request.getReservationData().getBookingSource());
+
+        TourCMSBooking booking = new TourCMSBooking();
+        booking.setBookingId(bookingId);
+        booking.setSuppressEmail(1); // Ignore send email to customer from TourCMS
+
+        String commitBookingResponse = tourCmsClient.commitBooking(booking);
+        String returnBookingId = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("booking_id").asText();
+        String barcodeData = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("barcode_data").asText();
+        String voucherUrl = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("voucher_url").asText();
+        if (returnBookingId == null || returnBookingId.isEmpty()) {
+            AppLogger.warn(TAG, "Booking ID is NULL OR Empty!");
+            throw new UnsupportedOperationException();
+        }
+
         SuccessfulBooking successfulBooking = new SuccessfulBooking();
-        successfulBooking.setBookingConfirmationCode(confirmationCode);
+        successfulBooking.setBookingConfirmationCode(returnBookingId);
         Ticket ticket = new Ticket();
         QrTicket qrTicket = new QrTicket();
-        qrTicket.setTicketBarcode(confirmationCode + "_ticket");
+        qrTicket.setTicketBarcode(barcodeData);
         ticket.setQrTicket(qrTicket);
         successfulBooking.setBookingTicket(ticket);
         response.setSuccessfulBooking(successfulBooking);
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(response));
-        AppLogger.info(TAG, "Out ::createAndConfirmBooking");
+        String responseJson = new Gson().toJson(response);
+        AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
+        exchange.getResponseSender().send(responseJson);
+
+        // Send notification
+        AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
+        EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
+        sender.sendEmailWithAttachment(
+                request.getReservationData().getCustomerContact().getEmail(),
+                "Booking Confirmation",
+                "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
+                bookingId,
+                date,
+                startTime,
+                voucherUrl
+        );
+        AppLogger.info(TAG, "Sending booking success to webhook!");
+        Map<String, String> webhookBookingCreatedParams = new HashMap<>();
+        webhookBookingCreatedParams.put("platform", Main.PLATFORM);
+        webhookBookingCreatedParams.put("booking_confirmation_code", bookingId);
+        webhookBookingCreatedParams.put("first_name", request.getReservationData().getCustomerContact().getFirstName());
+        webhookBookingCreatedParams.put("last_name", request.getReservationData().getCustomerContact().getLastName());
+        webhookBookingCreatedParams.put("voucher_link", voucherUrl);
+        webhookBookingCreatedParams.put("phone_number", request.getReservationData().getCustomerContact().getPhone());
+        WebhookClient.sendWebhook(webhookBookingCreatedParams).whenComplete((result, error) -> {
+            AppLogger.info(TAG, "Sending booking success info to telegram");
+            CreateAndConfirmBookingSuccessMessage bookingSuccessMessage = new CreateAndConfirmBookingSuccessMessage(request, commitBookingResponse, error != null ? error.getMessage() : "Sent");
+            TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
+        });
     }
 
     /**

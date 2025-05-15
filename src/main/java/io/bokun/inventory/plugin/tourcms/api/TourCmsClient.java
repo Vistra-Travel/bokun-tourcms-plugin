@@ -230,11 +230,11 @@ public class TourCmsClient {
     public String checkTourAvailability(HashMap<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         try (Response response = buildRequest("/c/tour/datesprices/checkavail.xml", "GET", query, null)) {
             if (!response.isSuccessful()) {
-                throw new IOException("Failed to create temporary booking: " + response.message());
+                throw new IOException("Failed to check tour availability: " + response.message());
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking created successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
+            AppLogger.info(TAG, "Check tour availability successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
@@ -256,7 +256,7 @@ public class TourCmsClient {
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking created successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
+            AppLogger.info(TAG, "Temporary booking created successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
@@ -271,7 +271,7 @@ public class TourCmsClient {
             }
 
             String result = resultResponse(response);
-            AppLogger.info(TAG, "Booking deleted successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
+            AppLogger.info(TAG, "Temporary Booking deleted successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
             return result;
         }
     }
