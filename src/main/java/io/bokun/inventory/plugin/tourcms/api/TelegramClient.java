@@ -130,7 +130,7 @@ public class TelegramClient {
             return;
         }
 
-        BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(new ConfirmBookingRequest(), jsonResponse);
+        BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(new ConfirmBookingRequest(), jsonResponse, 'Sent');
         TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString())
                 .whenComplete((result, error) -> {
                     if (error != null) {

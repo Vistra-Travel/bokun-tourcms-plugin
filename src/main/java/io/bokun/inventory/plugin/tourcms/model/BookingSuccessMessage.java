@@ -148,7 +148,7 @@ public class BookingSuccessMessage {
 //            }
         }
 
-        body.append("\\- *Webhook message*: ").append(escapeMarkdownV2(webhookStatus)).append("\n");
+        body.append("\n\\- *Webhook message*: ").append(escapeMarkdownV2(webhookStatus)).append("\n");
 
         return body.toString();
     }
