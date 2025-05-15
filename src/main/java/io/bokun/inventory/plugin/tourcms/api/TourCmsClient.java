@@ -1,6 +1,7 @@
 package io.bokun.inventory.plugin.tourcms.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.bokun.inventory.plugin.tourcms.model.TourCMSCustomerWrapper;
 import io.bokun.inventory.plugin.tourcms.model.TourCMSBooking;
 import io.bokun.inventory.plugin.tourcms.model.TourCMSCustomer;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
@@ -203,12 +204,14 @@ public class TourCmsClient {
     }
 
     public String updateCustomer(TourCMSCustomer customer) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
-        JAXBContext context = JAXBContext.newInstance(TourCMSCustomer.class);
+        JAXBContext context = JAXBContext.newInstance(TourCMSCustomerWrapper.class);
         Marshaller marshaller = context.createMarshaller();
         marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
 
+        TourCMSCustomerWrapper wrapper = new TourCMSCustomerWrapper(customer);
+
         StringWriter stringWriter = new StringWriter();
-        marshaller.marshal(customer, stringWriter);
+        marshaller.marshal(wrapper, stringWriter);
 
         String customerXml = stringWriter.toString();
         AppLogger.info(TAG, "Generated XML for Customer:\n" + customerXml);
