@@ -65,7 +65,6 @@ public class Main {
                                 .post("/product/getAvailable", new BlockingHandler(server.restService::getAvailableProducts))
                                 .post("/product/getAvailability", new BlockingHandler(server.restService::getProductAvailability))
 
-                                .get("/tour-cms/reserve", new BlockingHandler(server.restService::createReservation))
                                 .post("/booking/reserve", new BlockingHandler(server.restService::createReservation))
                                 .post("/booking/cancelReserve", new BlockingHandler(server.restService::cancelReservation))
 

@@ -71,8 +71,8 @@ public class RestService {
         definition.getCapabilities().add(AVAILABILITY);
 
         // below entry should be commented out if the plugin only supports reservation & confirmation as a single step
-//        definition.getCapabilities().add(RESERVATIONS);
-//        definition.getCapabilities().add(RESERVATION_CANCELLATION);
+        definition.getCapabilities().add(RESERVATIONS);
+        definition.getCapabilities().add(RESERVATION_CANCELLATION);
         // definition.getCapabilities().add(AMENDMENT);
 
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_ACCOUNT_ID, true));
