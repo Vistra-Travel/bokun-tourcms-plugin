@@ -192,7 +192,7 @@ public class TourCmsClient {
     }
 
     public String checkTourAvailability(HashMap<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        try (Response response = buildRequest("/c/tour/datesprices/checkavail.xml", "POST", query, null)) {
+        try (Response response = buildRequest("/c/tour/datesprices/checkavail.xml", "GET", query, null)) {
             if (!response.isSuccessful()) {
                 throw new IOException("Failed to create temporary booking: " + response.message());
             }
