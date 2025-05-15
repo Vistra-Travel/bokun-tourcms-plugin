@@ -657,9 +657,7 @@ public class RestService {
                 counterMap.put(pricingCategoryId, counterMap.getOrDefault(pricingCategoryId, 0) + 1);
             }
         }
-        counterMap.forEach((key, value) -> {
-            tourAvailableParams.put("key", value);
-        });
+        tourAvailableParams.putAll(counterMap);
         try {
             // Step 1. Check tour available
             String tourAvailableResponse = tourCmsClient.checkTourAvailability(tourAvailableParams);
