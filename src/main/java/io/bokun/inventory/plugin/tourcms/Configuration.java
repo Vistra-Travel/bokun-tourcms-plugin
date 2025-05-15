@@ -8,6 +8,7 @@ public final class Configuration {
     public static final String SMTP_SERVER = "SMTP_SERVER";
     public static final String SMTP_USERNAME = "SMTP_USERNAME";
     public static final String SMTP_PASSWORD = "SMTP_PASSWORD";
+    public static final String MAIL_CC = "MAIL_CC";
 
     public String marketplaceId;
     public String channelId;
@@ -17,6 +18,7 @@ public final class Configuration {
     public String smtpServer;
     public String smtpUsername;
     public String smtpPassword;
+    public String mailCc;
 
     private static void setParameterValue(String parameterName, String parameterValue, Configuration configuration) {
         switch (parameterName) {
@@ -27,6 +29,7 @@ public final class Configuration {
             case SMTP_SERVER: configuration.smtpServer = parameterValue; break;
             case SMTP_USERNAME: configuration.smtpUsername = parameterValue; break;
             case SMTP_PASSWORD: configuration.smtpPassword = parameterValue; break;
+            case MAIL_CC: configuration.mailCc = parameterValue; break;
         }
     }
 

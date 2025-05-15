@@ -28,15 +28,25 @@ public class EmailSender {
     private final String smtpServer;
     private final String smtpUsername;
     private final String smtpPassword;
+    private final String mailCc;
 
-    public EmailSender(String smtpServer, String username, String password) {
+    public EmailSender(String smtpServer, String username, String password, String mailCc) {
         this.smtpServer = smtpServer != null ? smtpServer : SMTP_SERVER;
         this.smtpUsername = username != null ? username : USERNAME;
         this.smtpPassword = password != null ? password : PASSWORD;
+        this.mailCc = mailCc;
     }
 
-    public void sendEmailWithAttachment(String toEmail, String subject, String messageContent,
-                                        String customerName, String bookingId, String fileUrl) {
+    public void sendEmailWithAttachment(
+            String toEmail,
+            String subject,
+            String messageContent,
+            String customerName,
+            String bookingId,
+            String bookingDate,
+            String startTime,
+            String voucherLink
+    ) {
         Properties properties = new Properties();
         properties.put("mail.smtp.auth", "true");
         properties.put("mail.smtp.starttls.enable", "true");
@@ -55,8 +65,15 @@ public class EmailSender {
         try {
             // Tạo message
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(this.smtpUsername));
+            message.setFrom(new InternetAddress(this.smtpUsername, "Vistra Travel"));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
+
+            // Thêm danh sách CC nếu có
+            if (mailCc != null && !mailCc.isEmpty()) {
+                message.setRecipients(Message.RecipientType.CC, InternetAddress.parse(mailCc));
+                AppLogger.info(TAG, "CC to: " + mailCc);
+            }
+
             message.setSubject(subject);
 
             // Tạo MimeBodyPart cho nội dung HTML
@@ -67,18 +84,20 @@ public class EmailSender {
                         .replace("{{name}}", customerName)
                         .replace("{{content}}", messageContent)
                         .replace("{{booking_id}}", bookingId)
-                        .replace("{{booking_date}}", getCurrentDate())
+                        .replace("{{booking_date}}", bookingDate)
+                        .replace("{{start_time}}", startTime)
+                        .replace("{{voucher_link}}", voucherLink)
                         .replace("{{logo_cid}}", "logo_cid");
                 messageBodyPart.setContent(formattedHtml, "text/html; charset=utf-8");
             } else {
                 messageBodyPart.setText(messageContent);
             }
 
-            // Tải file từ URL
-            File downloadedFile = downloadFileFromUrl(fileUrl);
-            // Tạo MimeBodyPart cho attachment
-            MimeBodyPart attachmentPart = new MimeBodyPart();
-            attachmentPart.attachFile(downloadedFile);
+//            // Tải file từ URL
+//            File downloadedFile = downloadFileFromUrl(fileUrl);
+//            // Tạo MimeBodyPart cho attachment
+//            MimeBodyPart attachmentPart = new MimeBodyPart();
+//            attachmentPart.attachFile(downloadedFile);
 
             // Đính kèm logo
             MimeBodyPart logoPart = new MimeBodyPart();
@@ -90,7 +109,7 @@ public class EmailSender {
             // Tạo multipart
             Multipart multipart = new MimeMultipart();
             multipart.addBodyPart(messageBodyPart);
-            multipart.addBodyPart(attachmentPart);
+//            multipart.addBodyPart(attachmentPart);
             multipart.addBodyPart(logoPart);
 
             // Set multipart vào message
@@ -101,12 +120,12 @@ public class EmailSender {
 
             AppLogger.info(TAG, String.format("Email sent to %s successfully", toEmail));
 
-            // Xóa file sau khi gửi xong
-            if (downloadedFile.exists() && downloadedFile.delete()) {
-                AppLogger.info(TAG, "Temporary file deleted: " + downloadedFile.getAbsolutePath());
-            } else {
-                AppLogger.warn(TAG, "Failed to delete temporary file: " + downloadedFile.getAbsolutePath());
-            }
+//            // Xóa file sau khi gửi xong
+//            if (downloadedFile.exists() && downloadedFile.delete()) {
+//                AppLogger.info(TAG, "Temporary file deleted: " + downloadedFile.getAbsolutePath());
+//            } else {
+//                AppLogger.warn(TAG, "Failed to delete temporary file: " + downloadedFile.getAbsolutePath());
+//            }
 
         } catch (Exception e) {
             AppLogger.error(TAG, String.format("Failed to send email to %s", toEmail), e);
@@ -166,13 +185,15 @@ public class EmailSender {
     }
 
     public static void main(String[] args) {
-        EmailSender sender = new EmailSender(null, null, null);
+        EmailSender sender = new EmailSender(null, null, null, "nyxtung97@gmail.com,ntuanhung6@gmail.com");
         sender.sendEmailWithAttachment(
                 "phuchau1509@gmail.com",
-                "Booking Confirmation with Attachment",
-                "Your booking has been confirmed successfully! We have attached the travel itinerary.",
+                "Booking Confirmation",
+                "Your booking has been confirmed successfully! Click the link below to view your voucher.",
                 "Jake 2",
                 "BK98765411",
+                "2025-05-17",
+                "10:00",
                 "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
         );
     }

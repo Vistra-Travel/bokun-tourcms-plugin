@@ -81,6 +81,7 @@ public class RestService {
         definition.getParameters().add(asStringParameter(Configuration.SMTP_SERVER, true));
         definition.getParameters().add(asStringParameter(Configuration.SMTP_USERNAME, true));
         definition.getParameters().add(asStringParameter(Configuration.SMTP_PASSWORD, true));
+        definition.getParameters().add(asStringParameter(Configuration.MAIL_CC, false));
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(new Gson().toJson(definition));
@@ -801,6 +802,9 @@ public class RestService {
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
         TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
+        String date = String.format("%04d-%02d-%02d", request.getReservationData().getDate().getYear(), request.getReservationData().getDate().getMonth(), request.getReservationData().getDate().getDay());
+        String startTime = String.format("%02d:%02d", request.getReservationData().getTime().getHour(), request.getReservationData().getTime().getMinute());
+
         ConfirmBookingResponse response = new ConfirmBookingResponse();
         processBookingSourceInfo(request.getReservationData().getBookingSource());
 
@@ -836,17 +840,19 @@ public class RestService {
 
             // Send notification
             AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
-            EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword);
+            EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
             sender.sendEmailWithAttachment(
                     request.getReservationData().getCustomerContact().getEmail(),
                     "Booking Confirmation",
-                    "Your booking has been confirmed successfully! We have attached the travel itinerary.",
+                    "Your booking has been confirmed successfully! Click the link below to view your voucher.",
                     request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
                     bookingId,
+                    date,
+                    startTime,
                     voucherUrl
             );
             AppLogger.info(TAG, "Sending booking success info to telegram");
-            BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(commitBookingResponse);
+            BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(request, commitBookingResponse);
             TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
         } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);

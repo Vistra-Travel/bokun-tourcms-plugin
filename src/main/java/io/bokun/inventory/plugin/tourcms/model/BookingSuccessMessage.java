@@ -2,6 +2,7 @@ package io.bokun.inventory.plugin.tourcms.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.bokun.inventory.plugin.api.rest.ConfirmBookingRequest;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 
 import java.util.ArrayList;
@@ -12,6 +13,8 @@ public class BookingSuccessMessage {
     private static final String TAG = "BookingSuccessMessage";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    protected ConfirmBookingRequest request;
+
     protected String bookingId;
     protected String bookingUuid;
     protected String channelId;
@@ -21,10 +24,8 @@ public class BookingSuccessMessage {
     protected String voucherUrl;
     protected String barcodeData;
 
-    // List để lưu tất cả component
     protected List<Component> components = new ArrayList<>();
 
-    // Component class đại diện cho thông tin của từng component
     public static class Component {
         protected String componentId;
         protected String operatorReference;
@@ -49,8 +50,8 @@ public class BookingSuccessMessage {
         protected String voucherLabel;
     }
 
-    // Constructor nhận chuỗi JSON và parse sang các field
-    public BookingSuccessMessage(String json) {
+    public BookingSuccessMessage(ConfirmBookingRequest request, String json) {
+        this.request = request;
         try {
             JsonNode root = MAPPER.readTree(json);
 
@@ -65,13 +66,11 @@ public class BookingSuccessMessage {
 
             JsonNode componentNode = root.path("booking").path("components").path("component");
 
-            // Kiểm tra nếu là Array thì duyệt qua từng phần tử
             if (componentNode.isArray()) {
                 for (JsonNode node : componentNode) {
                     components.add(parseComponent(node));
                 }
             } else if (componentNode.isObject()) {
-                // Nếu là Object thì parse trực tiếp
                 components.add(parseComponent(componentNode));
             }
         } catch (Exception e) {
@@ -79,7 +78,6 @@ public class BookingSuccessMessage {
         }
     }
 
-    // Parse từng Component
     private Component parseComponent(JsonNode componentNode) {
         Component component = new Component();
         component.componentId = componentNode.path("component_id").asText();
@@ -127,6 +125,12 @@ public class BookingSuccessMessage {
         body.append("\\- *Account Id*: `").append(escapeMarkdownV2(accountId)).append("`\n");
         body.append("\\- *Status*: ").append(escapeMarkdownV2(statusText)).append("\n");
         body.append("\\- *Voucher URL*: [Link](").append(escapeMarkdownV2(voucherUrl)).append(")\n");
+
+        body.append("\n*Customer Contact Information:*\n");
+        body.append("\\- *First Name*: ").append(escapeMarkdownV2(request.getReservationData().getCustomerContact().getFirstName())).append("\n");
+        body.append("\\- *Last Name*: ").append(escapeMarkdownV2(request.getReservationData().getCustomerContact().getLastName())).append("\n");
+        body.append("\\- *Email*: `").append(escapeMarkdownV2(request.getReservationData().getCustomerContact().getEmail())).append("`\n");
+        body.append("\\- *Phone*: `").append(escapeMarkdownV2(request.getReservationData().getCustomerContact().getPhone())).append("`\n");
 
         for (Component component : components) {
             body.append("\n*Component Information:*\n");
