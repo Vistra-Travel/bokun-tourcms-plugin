@@ -505,26 +505,49 @@ public class RestService {
         String startDateStart = String.format("%04d-%02d-%02d", range.getFrom().getYear(), range.getFrom().getMonth(), range.getFrom().getDay());
         String startDateEnd = String.format("%04d-%02d-%02d", range.getTo().getYear(), range.getTo().getMonth(), range.getTo().getDay());
 
+        List<ProductAvailabilityWithRatesResponse> productAvailabilityWithRatesResponses = new ArrayList<>();
+        Map<String, ProductAvailabilityWithRatesResponse> responseMap = new HashMap<>();
+
+        int page = 1;
+        int perPage = 100;
         Map<String, Object> params = new HashMap<>();
         params.put("id", productId);
         params.put("start_date_start", startDateStart);
         params.put("start_date_end", startDateEnd);
-
-        List<ProductAvailabilityWithRatesResponse> productAvailabilityWithRatesResponses = new ArrayList<>();
-
-        Map<String, ProductAvailabilityWithRatesResponse> responseMap = new HashMap<>();
+        params.put("per_page", perPage);
+        params.put("page", page);
 
         try {
             String tourDeparturesResponse = tourCmsClient.getTourDepartures(params);
             ProductRateMapping productRateMapping = Mapping.parseProductRates(tourDeparturesResponse);
             JsonNode tourNode = Mapping.MAPPER.readTree(tourDeparturesResponse).path("tour");
+            List<JsonNode> departuresNodeList = new ArrayList<>();
 
             if (!tourNode.isMissingNode()) {
+                int total = tourNode.path("dates_and_prices").path("total_departure_count").asInt(0);
                 JsonNode departuresNode = tourNode.path("dates_and_prices").path("departure");
 
-                List<JsonNode> departuresNodeList = departuresNode.isArray() ?
-                        ImmutableList.copyOf(departuresNode) :
-                        ImmutableList.of(departuresNode);
+                if (departuresNode.isArray()) {
+                    departuresNodeList.addAll(ImmutableList.copyOf(departuresNode));
+                } else {
+                    departuresNodeList.add(departuresNode);
+                }
+
+                int totalPages = (int) Math.ceil((double) total / perPage);
+
+                for (int i = 2; i <= totalPages; i++) {
+                    AppLogger.info(TAG, "Fetching page " + i + " of " + totalPages);
+                    params.put("page", i);
+                    String response = tourCmsClient.getTourDepartures(params);
+                    JsonNode nextTourNode = Mapping.MAPPER.readTree(response).path("tour");
+                    JsonNode nextDeparturesNode = nextTourNode.path("dates_and_prices").path("departure");
+
+                    if (nextDeparturesNode.isArray()) {
+                        departuresNodeList.addAll(ImmutableList.copyOf(nextDeparturesNode));
+                    } else if (!nextDeparturesNode.isMissingNode()) {
+                        departuresNodeList.add(nextDeparturesNode);
+                    }
+                }
 
                 for (JsonNode departure : departuresNodeList) {
                     String startDate = departure.path("start_date").asText(null);
