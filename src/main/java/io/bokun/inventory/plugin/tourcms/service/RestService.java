@@ -70,8 +70,8 @@ public class RestService {
         definition.getCapabilities().add(AVAILABILITY);
 
         // below entry should be commented out if the plugin only supports reservation & confirmation as a single step
-        definition.getCapabilities().add(RESERVATIONS);
-        definition.getCapabilities().add(RESERVATION_CANCELLATION);
+        //definition.getCapabilities().add(RESERVATIONS);
+        //definition.getCapabilities().add(RESERVATION_CANCELLATION);
         // definition.getCapabilities().add(AMENDMENT);
 
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_ACCOUNT_ID, true));
@@ -740,21 +740,10 @@ public class RestService {
             tourCMSBooking.setComponents(tourCMSComponents);
 
             TourCMSCustomer customer = new TourCMSCustomer();
-//            String[] names = Mapping.splitFullName(request.getReservationData().getBookingSource().getExtranetUser().getFullName());
-//            customer.setEmail(request.getReservationData().getBookingSource().getExtranetUser().getEmail());
-//            customer.setFirstName(names[0]);
-//            customer.setSurname(names[1]);
             customer.setEmail(request.getReservationData().getCustomerContact().getEmail());
             customer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
             customer.setSurname(request.getReservationData().getCustomerContact().getLastName());
-//            customer.setAddress(request.getReservationData().getCustomerContact().getAddress());
-//            customer.setCountry(request.getReservationData().getCustomerContact().getCountry());
-//            customer.setPostcode(request.getReservationData().getCustomerContact().getPostCode());
             customer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
-//            customer.setPassportNumber(request.getReservationData().getCustomerContact().getPassportNumber());
-//            DateYMD passportExpiry = request.getReservationData().getCustomerContact().getPassportExpiry();
-//            String passport = String.format("%04d-%02d-%02d", passportExpiry.getYear(), passportExpiry.getMonth(), passportExpiry.getDay());
-//            customer.setPassportExpiryDate(passport);
 
             TourCMSCustomers customers = new TourCMSCustomers();
             customers.setCustomerList(Collections.singletonList(customer));
