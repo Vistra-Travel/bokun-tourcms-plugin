@@ -10,7 +10,7 @@ public class TourCMSBooking {
     private String bookingId;
 
     @XmlElement(name = "total_customers")
-    private int totalCustomers;
+    private Integer totalCustomers;
 
     @XmlElement(name = "booking_key")
     private String bookingKey;
@@ -44,11 +44,11 @@ public class TourCMSBooking {
         this.bookingId = bookingId;
     }
 
-    public int getTotalCustomers() {
+    public Integer getTotalCustomers() {
         return totalCustomers;
     }
 
-    public void setTotalCustomers(int totalCustomers) {
+    public void setTotalCustomers(Integer totalCustomers) {
         this.totalCustomers = totalCustomers;
     }
 
