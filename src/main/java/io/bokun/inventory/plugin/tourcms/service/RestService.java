@@ -791,8 +791,8 @@ public class RestService {
 
         try {
             String commitBookingResponse = tourCmsClient.commitBooking(booking);
-            String bookingId = Mapping.MAPPER.readTree(commitBookingResponse).path("booking_id").asText();
-            String barcodeData = Mapping.MAPPER.readTree(commitBookingResponse).path("barcode_data").asText();
+            String bookingId = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("booking_id").asText();
+            String barcodeData = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("barcode_data").asText();
             if (bookingId == null || bookingId.isEmpty()) {
                 AppLogger.warn(TAG, "Booking ID is NULL OR Empty!");
                 exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
