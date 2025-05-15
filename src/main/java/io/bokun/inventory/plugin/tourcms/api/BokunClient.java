@@ -109,8 +109,8 @@ public class BokunClient {
         return buildRequest("/activity.json/search", "POST", body);
     }
 
-    public String getAvailability(String productId, String date) throws IOException {
-        String endpoint = String.format("/activity.json/%s/availabilities?start=%s&end=%s", productId, date, date);
+    public String getAvailability(String productId, String startDate, String endDate) throws IOException {
+        String endpoint = String.format("/activity.json/%s/availabilities?start=%s&end=%s", productId, startDate, endDate);
         return buildRequest(endpoint, "GET", null);
     }
 
@@ -131,8 +131,8 @@ public class BokunClient {
         return buildRequest("/activity.json/" + productId + "/slots", "GET", null);
     }
 
-    public boolean checkAvailability(String productId, String date) throws IOException {
-        String response = getAvailability(productId, date);
+    public boolean checkAvailability(String productId, String startDate, String endDate) throws IOException {
+        String response = getAvailability(productId, startDate, endDate);
         return response.contains("\"available\":true");
     }
 
