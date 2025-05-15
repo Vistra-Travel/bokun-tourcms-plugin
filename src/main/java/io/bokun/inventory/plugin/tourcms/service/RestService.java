@@ -498,13 +498,12 @@ public class RestService {
         String startDateStart = String.format("%04d-%02d-%02d", range.getFrom().getYear(), range.getFrom().getMonth(), range.getFrom().getDay());
         String startDateEnd = String.format("%04d-%02d-%02d", range.getTo().getYear(), range.getTo().getMonth(), range.getTo().getDay());
 
-        // Sử dụng Map để merge theo Date và Time
-        Map<String, ProductAvailabilityWithRatesResponse> mergedAvailabilityMap = new HashMap<>();
-
         Map<String, Object> params = new HashMap<>();
         params.put("id", productId);
         params.put("start_date_start", startDateStart);
         params.put("start_date_end", startDateEnd);
+
+        List<ProductAvailabilityWithRatesResponse> productAvailabilityWithRatesResponses = new ArrayList<>();
 
         try {
             String tourResponse = tourCmsClient.getTourDepartures(params);
@@ -518,46 +517,38 @@ public class RestService {
                         ImmutableList.of(departuresNode);
 
                 for (JsonNode departure : departuresNodeList) {
-                    String startDate = departure.path("start_date").isTextual() ? departure.path("start_date").asText() : null;
-                    String startTime = departure.path("start_time").isTextual() ? departure.path("start_time").asText() : null;
-                    int capacity = !departure.path("spaces_remaining").asText().isEmpty() ? Integer.parseInt(departure.path("spaces_remaining").asText()) : 0;
+                    String startDate = departure.path("start_date").asText(null);
+                    String startTime = departure.path("start_time").asText(null);
+                    int capacity = departure.path("spaces_remaining").asInt(0);
 
                     if (startDate != null && startTime != null) {
-                        String key = startDate + " " + startTime;
+                        LocalDate date = LocalDate.parse(startDate);
+                        DateYMD tourDate = new DateYMD();
+                        tourDate.setYear(date.getYear());
+                        tourDate.setMonth(date.getMonthValue());
+                        tourDate.setDay(date.getDayOfMonth());
 
-                        // === CREATE NEW RESPONSE ===
-                        ProductAvailabilityWithRatesResponse response;
-                        if (mergedAvailabilityMap.containsKey(key)) {
-                            response = mergedAvailabilityMap.get(key);
-                            response.setCapacity(response.getCapacity() + capacity); // Cộng dồn capacity
-                        } else {
-                            response = new ProductAvailabilityWithRatesResponse();
-                            response.setCapacity(capacity);
-
-                            // Set Date
-                            LocalDate date = LocalDate.parse(startDate);
-                            DateYMD tourDate = new DateYMD();
-                            tourDate.setYear(date.getYear());
-                            tourDate.setMonth(date.getMonthValue());
-                            tourDate.setDay(date.getDayOfMonth());
-                            response.setDate(tourDate);
-
-                            // Set Time
-                            if (startTime.contains(":")) {
-                                String[] timeParts = startTime.split(":");
-                                Time time = new Time();
-                                time.setHour(Integer.parseInt(timeParts[0]));
-                                time.setMinute(Integer.parseInt(timeParts[1]));
-                                response.setTime(time);
-                            }
-                            response.setRates(new ArrayList<>());
+                        // Set Time
+                        Time time = null;
+                        if (startTime.contains(":")) {
+                            String[] timeParts = startTime.split(":");
+                            time = new Time();
+                            time.setHour(Integer.parseInt(timeParts[0]));
+                            time.setMinute(Integer.parseInt(timeParts[1]));
                         }
 
-                        // === ADD RATES ===
                         // Main Price
                         JsonNode mainPriceNode = departure.path("main_price");
                         if (!mainPriceNode.isMissingNode()) {
-                            Mapping.addRateIfNotExist(mainPriceNode, response.getRates(), tourNode.path("sale_currency").asText(), true);
+                            RateWithPrice mainRate = Mapping.mapRate(mainPriceNode, tourNode.path("sale_currency").asText(), true);
+
+                            ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();
+                            response.setCapacity(capacity);
+                            response.setDate(tourDate);
+                            response.setTime(time);
+                            response.setRates(Collections.singletonList(mainRate));
+
+                            productAvailabilityWithRatesResponses.add(response);
                         }
 
                         // Extra Rates
@@ -565,13 +556,18 @@ public class RestService {
                         if (extraRatesNode.isArray()) {
                             for (JsonNode extraRateNode : extraRatesNode) {
                                 if (!extraRateNode.isMissingNode()) {
-                                    Mapping.addRateIfNotExist(extraRateNode, response.getRates(), tourNode.path("sale_currency").asText(), false);
+                                    RateWithPrice extraRate = Mapping.mapRate(extraRateNode, tourNode.path("sale_currency").asText(), false);
+
+                                    ProductAvailabilityWithRatesResponse extraResponse = new ProductAvailabilityWithRatesResponse();
+                                    extraResponse.setCapacity(capacity);
+                                    extraResponse.setDate(tourDate);
+                                    extraResponse.setTime(time);
+                                    extraResponse.setRates(Collections.singletonList(extraRate));
+
+                                    productAvailabilityWithRatesResponses.add(extraResponse);
                                 }
                             }
                         }
-
-                        // Put vào Map
-                        mergedAvailabilityMap.put(key, response);
                     }
                 }
             }
@@ -579,7 +575,7 @@ public class RestService {
             AppLogger.error(TAG, String.format("Couldn't get tour by dates: %s", params), e);
         }
 
-        List<ProductAvailabilityWithRatesResponse> productAvailabilityWithRatesResponses = new ArrayList<>(mergedAvailabilityMap.values());
+        // Sort kết quả
         productAvailabilityWithRatesResponses.sort(Comparator
                 .comparing((ProductAvailabilityWithRatesResponse p) -> p.getDate().getYear())
                 .thenComparing(p -> p.getDate().getMonth())
@@ -587,6 +583,8 @@ public class RestService {
                 .thenComparing(p -> p.getTime().getHour())
                 .thenComparing(p -> p.getTime().getMinute())
         );
+
+        // Set header và gửi response
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         String response = new Gson().toJson(productAvailabilityWithRatesResponses);
         AppLogger.info(TAG, String.format("-> Response: %s", response));

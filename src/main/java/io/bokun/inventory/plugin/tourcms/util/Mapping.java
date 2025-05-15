@@ -123,6 +123,37 @@ public class Mapping {
         return products;
     }
 
+    public static RateWithPrice mapRate(JsonNode rateNode, String currency, boolean isMainRate) {
+        String rateId = rateNode.path("rate_id").asText();
+
+        RateWithPrice rate = new RateWithPrice();
+        rate.setRateId(rateId);
+
+        PricePerPerson pricePerPerson = new PricePerPerson();
+        pricePerPerson.setPricingCategoryWithPrice(new ArrayList<>());
+
+        PricingCategoryWithPrice categoryPrice = new PricingCategoryWithPrice();
+        categoryPrice.setPricingCategoryId(rateId);
+
+        Price price = new Price();
+        price.setAmount(rateNode.path("rate_price").asText());
+        price.setCurrency(currency);
+
+        categoryPrice.setPrice(price);
+
+        pricePerPerson.getPricingCategoryWithPrice().add(categoryPrice);
+        rate.setPricePerPerson(pricePerPerson);
+
+        // === Nếu là MainRate, thiết lập giá cho toàn bộ booking ===
+        if (isMainRate) {
+            PricePerBooking pricePerBooking = new PricePerBooking();
+            pricePerBooking.setPrice(price);
+            rate.setPricePerBooking(pricePerBooking);
+        }
+
+        return rate;
+    }
+
     public static void addRateIfNotExist(JsonNode rateNode, List<RateWithPrice> rateList, String currency, boolean isMainRate) {
         String rateId = rateNode.path("rate_id").asText();
         boolean exists = rateList.stream().anyMatch(rate -> rate.getRateId().equals(rateId));
@@ -146,11 +177,11 @@ public class Mapping {
             pricePerPerson.getPricingCategoryWithPrice().add(categoryPrice);
             rate.setPricePerPerson(pricePerPerson);
 
-            if (isMainRate) {
+            /*if (isMainRate) {
                 PricePerBooking pricePerBooking = new PricePerBooking();
                 pricePerBooking.setPrice(price);
                 rate.setPricePerBooking(pricePerBooking);
-            }
+            }*/
 
             rateList.add(rate);
         }
