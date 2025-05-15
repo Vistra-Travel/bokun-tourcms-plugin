@@ -626,7 +626,7 @@ public class RestService {
 
     public void createReservation(HttpServerExchange exchange) {
         ReservationRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ReservationRequest.class);
-        AppLogger.info(TAG, String.format("Create reservation: %s", request.getReservationData()));
+        AppLogger.info(TAG, "Create reservation");
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
