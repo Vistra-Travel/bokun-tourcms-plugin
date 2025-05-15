@@ -2,6 +2,7 @@ package io.bokun.inventory.plugin.tourcms.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.bokun.inventory.plugin.tourcms.model.TourCMSBooking;
+import io.bokun.inventory.plugin.tourcms.model.TourCMSCustomer;
 import io.bokun.inventory.plugin.tourcms.util.AppLogger;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import io.bokun.inventory.plugin.tourcms.util.Mapping;
@@ -189,6 +190,37 @@ public class TourCmsClient {
                 throw new IOException("Failed to update tour: " + response.message());
             }
             return resultResponse(response);
+        }
+    }
+
+    public String showBooking(Map<String, Object> query) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        try (Response response = buildRequest("/c/booking/show.xml", "GET", query, null)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to fetch products: " + response.message());
+            }
+            return resultResponse(response);
+        }
+    }
+
+    public String updateCustomer(TourCMSCustomer customer) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
+        JAXBContext context = JAXBContext.newInstance(TourCMSCustomer.class);
+        Marshaller marshaller = context.createMarshaller();
+        marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+
+        StringWriter stringWriter = new StringWriter();
+        marshaller.marshal(customer, stringWriter);
+
+        String customerXml = stringWriter.toString();
+        AppLogger.info(TAG, "Generated XML for Customer:\n" + customerXml);
+
+        try (Response response = buildRequest("/c/customer/update.xml", "POST", null, customerXml)) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to update customer: " + response.message());
+            }
+
+            String result = resultResponse(response);
+            AppLogger.info(TAG, "Customer updated successfully: " + Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(result)));
+            return result;
         }
     }
 

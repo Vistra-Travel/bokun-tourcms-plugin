@@ -70,8 +70,8 @@ public class RestService {
         definition.getCapabilities().add(AVAILABILITY);
 
         // below entry should be commented out if the plugin only supports reservation & confirmation as a single step
-        //definition.getCapabilities().add(RESERVATIONS);
-        //definition.getCapabilities().add(RESERVATION_CANCELLATION);
+        definition.getCapabilities().add(RESERVATIONS);
+        definition.getCapabilities().add(RESERVATION_CANCELLATION);
         // definition.getCapabilities().add(AMENDMENT);
 
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_ACCOUNT_ID, true));
@@ -822,6 +822,10 @@ public class RestService {
         ConfirmBookingResponse response = new ConfirmBookingResponse();
         processBookingSourceInfo(request.getReservationData().getBookingSource());
 
+        HashMap<String, Object> showBookingParams = new HashMap<>();
+        showBookingParams.put("booking_id", request.getReservationConfirmationCode());
+        showBookingParams.put("components_order_by_rate", 1);
+
         TourCMSBooking booking = new TourCMSBooking();
         booking.setBookingId(request.getReservationConfirmationCode());
         booking.setSuppressEmail(1); // Ignore send email to customer from TourCMS
@@ -878,6 +882,18 @@ public class RestService {
                 BookingSuccessMessage bookingSuccessMessage = new BookingSuccessMessage(request, commitBookingResponse, error != null ? error.getMessage() : "Sent");
                 TelegramClient.sendTelegramMessage(bookingSuccessMessage.toString());
             });
+
+            AppLogger.info(TAG, "Updating customer info...");
+            String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
+            String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
+            TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
+            tourCMSCustomer.setCustomerId(customerId);
+            tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
+            tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
+            tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
+            tourCMSCustomer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
+            tourCmsClient.updateCustomer(tourCMSCustomer);
+            AppLogger.info(TAG, "Customer info updated!");
         } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");

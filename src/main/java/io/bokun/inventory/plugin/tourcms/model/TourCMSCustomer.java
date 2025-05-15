@@ -7,6 +7,9 @@ import javax.xml.bind.annotation.XmlElement;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class TourCMSCustomer {
 
+    @XmlElement(name = "customer_id")
+    private String customerId;
+
     @XmlElement(name = "title")
     private String title;
 
@@ -102,6 +105,14 @@ public class TourCMSCustomer {
 
     @XmlElement(name = "agent_customer_ref")
     private String agentCustomerRef;
+
+    public String getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(String customerId) {
+        this.customerId = customerId;
+    }
 
     public String getTitle() {
         return title;
