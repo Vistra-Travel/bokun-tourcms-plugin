@@ -401,8 +401,8 @@ public class RestService {
     }
 
     public void getAvailableProducts(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "Get products available!");
         ProductsAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductsAvailabilityRequest.class);
+        AppLogger.info(TAG, String.format("Get available products: %s", request.getExternalProductIds()));
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
@@ -430,6 +430,7 @@ public class RestService {
         List<ProductsAvailabilityResponse> productsAvailabilityResponses = new ArrayList<>();
 
         notAllowExternalProductIds.forEach(productId -> {
+            AppLogger.info(TAG, String.format("- Product ID %s is not allow in %s -> Set false", "TOURCMS_FILTER_IDS", productId));
             productsAvailabilityResponses.add(new ProductsAvailabilityResponse()
                     .productId(productId)
                     .actualCheckDone(false)
@@ -437,6 +438,8 @@ public class RestService {
         });
 
         allowExternalProductIds.forEach(productId -> {
+            AppLogger.info(TAG, String.format("- Checking for product ID: %s", productId));
+
             Map<String, Object> params = new HashMap<>();
             params.put("id", productId);
             params.put("distinct_start_dates", 1);
@@ -444,10 +447,10 @@ public class RestService {
             params.put("startdate_end", endDate);
 
             try {
-                String toursResponse = tourCmsClient.getToursByDates(params);
+                String toursByDatesResponse = tourCmsClient.getToursByDates(params);
 //                AppLogger.info(TAG, String.format("TourCMS - getToursByDates %s JSON: %s", params, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(toursResponse))));
 
-                JsonNode datesNode = Mapping.MAPPER.readTree(toursResponse)
+                JsonNode datesNode = Mapping.MAPPER.readTree(toursByDatesResponse)
                         .path("dates_and_prices")
                         .path("date");
 
@@ -459,7 +462,7 @@ public class RestService {
                         .min()
                         .orElse(0);
 
-                AppLogger.info(TAG, String.format(" - Tour ID: %s -> Min Capacity Found: %d", productId, minCapacity));
+                AppLogger.info(TAG, String.format("- Product ID: %s -> Min Capacity Found: %d. RequiredCapacity: %d -> %s", productId, minCapacity, requiredCapacity, requiredCapacity <= minCapacity));
 
                 productsAvailabilityResponses.add(new ProductsAvailabilityResponse()
                         .productId(productId)
