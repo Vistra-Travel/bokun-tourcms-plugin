@@ -65,9 +65,9 @@ public class RestService {
         definition.getCapabilities().add(AVAILABILITY);
 
         // below entry should be commented out if the plugin only supports reservation & confirmation as a single step
-        definition.getCapabilities().add(RESERVATIONS);
-        definition.getCapabilities().add(RESERVATION_CANCELLATION);
-//        definition.getCapabilities().add(AMENDMENT);
+//        definition.getCapabilities().add(RESERVATIONS);
+//        definition.getCapabilities().add(RESERVATION_CANCELLATION);
+        // definition.getCapabilities().add(AMENDMENT);
 
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_ACCOUNT_ID, true));
         definition.getParameters().add(asStringParameter(Configuration.TOURCMS_CHANNEL_ID, true));
@@ -685,11 +685,10 @@ public class RestService {
      * reservation and confirmation, this method can be left empty or non-overridden.
      */
     public void confirmBooking(HttpServerExchange exchange) {
-        // body of this method can be left empty if reserve & confirm is only supported as a single step
-        AppLogger.info(TAG, "In ::confirmBooking");
-
+        AppLogger.info(TAG, "Confirm booking");
         ConfirmBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ConfirmBookingRequest.class);
-        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
         // At this point you might want to call your external system to do the actual confirmation and return data back.
         // Code below just provides some mocks.
@@ -713,9 +712,11 @@ public class RestService {
     }
 
     public void amendBooking(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "In ::amendBooking");
-
+        AppLogger.info(TAG, "Emend booking");
         AmendBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), AmendBookingRequest.class);
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
+
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
 
         // At this point you might want to call your external system to do the actual amendment and return data back.
@@ -803,9 +804,12 @@ public class RestService {
      * which offers no refund. Then a cancellation does not have any monetary effect.
      */
     public void cancelBooking(HttpServerExchange exchange) {
-        AppLogger.info(TAG, "In ::cancelBooking");
+        AppLogger.info(TAG, "Cancel booking");
 
         CancelBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CancelBookingRequest.class);
+        String requestJson = new Gson().toJson(request);
+        AppLogger.info(TAG, String.format("- Request: %s", requestJson));
+
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
 
         // At this point you might want to call your external system to do the actual booking cancellation and return data back.
