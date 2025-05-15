@@ -23,9 +23,13 @@ public class BookingCancelMessage {
 
     @Override
     public String toString() {
+        String cancelReason = tourCMSBooking.getCancelReason();
+        if (cancelReason.equals("23")) {
+            cancelReason += " - Cancelled by agent (via website)";
+        }
         return "*\\[BOOKING CANCEL\\]* ❌\n" +
                 "\\- *Booking Id*: `" + escapeMarkdownV2(tourCMSBooking.getBookingId()) + "`\n" +
                 "\\- *Note*: " + escapeMarkdownV2(tourCMSBooking.getNote()) + "\n" +
-                "\\- *Cancel reason*: `" + escapeMarkdownV2(tourCMSBooking.getCancelReason()) + "`\n";
+                "\\- *Cancel reason*: `" + escapeMarkdownV2(cancelReason) + "`\n";
     }
 }
