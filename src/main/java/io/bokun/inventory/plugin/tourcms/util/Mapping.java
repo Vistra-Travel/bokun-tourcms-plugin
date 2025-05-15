@@ -124,6 +124,7 @@ public class Mapping {
     }
 
     public static RateWithPrice mapRate(JsonNode rateNode, String currency, boolean isMainRate) {
+
         String rateId = rateNode.path("rate_id").asText();
 
         RateWithPrice rate = new RateWithPrice();
@@ -144,14 +145,12 @@ public class Mapping {
         pricePerPerson.getPricingCategoryWithPrice().add(categoryPrice);
         rate.setPricePerPerson(pricePerPerson);
 
-//        // === Nếu là MainRate, thiết lập giá cho toàn bộ booking ===
-//        if (isMainRate) {
-//
-//        }
-
-        PricePerBooking pricePerBooking = new PricePerBooking();
-        pricePerBooking.setPrice(price);
-        rate.setPricePerBooking(pricePerBooking);
+        // === Nếu là MainRate, thiết lập giá cho toàn bộ booking ===
+        if (isMainRate) {
+            PricePerBooking pricePerBooking = new PricePerBooking();
+            pricePerBooking.setPrice(price);
+            rate.setPricePerBooking(pricePerBooking);
+        }
 
         return rate;
     }
@@ -216,7 +215,7 @@ public class Mapping {
                 ImmutableList.copyOf(tourDepartures) :
                 ImmutableList.of(tourDepartures);
 
-        if (!newBookingRatesList.isEmpty()) {
+        /*if (!newBookingRatesList.isEmpty()) {
             for (JsonNode rateNode : newBookingRatesList) {
                 String rateId = rateNode.path("rate_id").asText();
                 String rateLabel = rateNode.path("label_1").asText();
@@ -228,10 +227,19 @@ public class Mapping {
                     rates.add(rate);
                 }
             }
-        }
+        }*/
 
         if (!tourDeparturesList.isEmpty()) {
             for (JsonNode departure : tourDeparturesList) {
+                String note = departure.path("note").asText();
+                String supplierNote = departure.path("supplier_note").asText();
+                if (!note.isEmpty() && !supplierNote.isEmpty() && rates.stream().noneMatch(r -> r.getId().equals(supplierNote))) {
+                    Rate rate = new Rate();
+                    rate.setId(supplierNote);
+                    rate.setLabel(note.substring(0, 1).toUpperCase() + note.substring(1).toLowerCase());
+                    rates.add(rate);
+                }
+
                 String startTime = departure.path("start_time").asText();
                 if (!startTimes.contains(startTime)) {
                     startTimes.add(startTime);

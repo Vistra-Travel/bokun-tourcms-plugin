@@ -486,7 +486,7 @@ public class RestService {
 
     public void getProductAvailability(HttpServerExchange exchange) {
         ProductAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductAvailabilityRequest.class);
-        AppLogger.info(TAG, String.format("Get product availability: %s", new InputStreamReader(exchange.getInputStream())));
+        AppLogger.info(TAG, String.format("Get product availability: %s", request.getProductId()));
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
