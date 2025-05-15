@@ -791,19 +791,20 @@ public class RestService {
 
         try {
             String commitBookingResponse = tourCmsClient.commitBooking(booking);
-            String bookingUuid = Mapping.MAPPER.readTree(commitBookingResponse).path("booking_uuid").asText();
-            if (bookingUuid == null || bookingUuid.isEmpty()) {
-                AppLogger.warn(TAG, "Booking UUID is NULL OR Empty!");
+            String bookingId = Mapping.MAPPER.readTree(commitBookingResponse).path("booking_id").asText();
+            String barcodeData = Mapping.MAPPER.readTree(commitBookingResponse).path("barcode_data").asText();
+            if (bookingId == null || bookingId.isEmpty()) {
+                AppLogger.warn(TAG, "Booking ID is NULL OR Empty!");
                 exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
                 exchange.getResponseSender().send(new Gson().toJson(response));
                 return;
             }
 
             SuccessfulBooking successfulBooking = new SuccessfulBooking();
-            successfulBooking.setBookingConfirmationCode(bookingUuid);
+            successfulBooking.setBookingConfirmationCode(bookingId);
             Ticket ticket = new Ticket();
             QrTicket qrTicket = new QrTicket();
-            qrTicket.setTicketBarcode(bookingUuid + "_ticket");
+            qrTicket.setTicketBarcode(barcodeData);
             ticket.setQrTicket(qrTicket);
             successfulBooking.setBookingTicket(ticket);
             response.setSuccessfulBooking(successfulBooking);
