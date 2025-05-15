@@ -640,7 +640,7 @@ public class RestService {
         // Define query
         String productId = request.getReservationData().getProductId();
         String date = String.format("%04d-%02d-%02d", request.getReservationData().getDate().getYear(), request.getReservationData().getDate().getMonth(), request.getReservationData().getDate().getDay());
-        String startTime = String.format("%02d-%02d", request.getReservationData().getTime().getHour(), request.getReservationData().getTime().getMinute());
+        String startTime = String.format("%02d:%02d", request.getReservationData().getTime().getHour(), request.getReservationData().getTime().getMinute());
 
         HashMap<String, Object> tourAvailableParams = new HashMap<>();
         tourAvailableParams.put("id", productId);
