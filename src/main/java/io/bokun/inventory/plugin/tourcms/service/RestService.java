@@ -663,6 +663,7 @@ public class RestService {
         try {
             // Step 1. Check tour available
             String tourAvailableResponse = tourCmsClient.checkTourAvailability(tourAvailableParams);
+            AppLogger.info(TAG, String.format("TourCMS - tourAvailableResponse %s - JSON: %s", tourAvailableParams, Mapping.MAPPER.writeValueAsString(Mapping.MAPPER.readTree(tourAvailableResponse))));
             JsonNode components = Mapping.MAPPER.readTree(tourAvailableResponse).path("available_components").path("component");
             if (components.isMissingNode() || !components.elements().hasNext()) {
                 AppLogger.warn(TAG, "Components is missing OR do not has next!");
@@ -753,12 +754,6 @@ public class RestService {
         exchange.getResponseSender().send(responseJson);
     }
 
-    /**
-     * This call cancels existing reservation -- if the booking was not yet confirmed.
-     * <p>
-     * Only implement this method if {@link PluginCapability#RESERVATIONS} and {@link PluginCapability#RESERVATION_CANCELLATION} are among
-     * capabilities of your {@link PluginDefinition}.
-     */
     public void cancelReservation(HttpServerExchange exchange) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         CancelReservationRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CancelReservationRequest.class);
         AppLogger.info(TAG, String.format("Cancel reservation: %s - %s", request.getAgentCode(), request.getReservationConfirmationCode()));
@@ -780,13 +775,6 @@ public class RestService {
         exchange.getResponseSender().send(responseJson);
     }
 
-    /**
-     * Once reserved, proceed with booking. This will be called in case if reservation has succeeded.
-     * <p>
-     * Only implement this method if {@link PluginCapability#RESERVATIONS} is among capabilities of your {@link PluginDefinition}.
-     * Otherwise you are only required to implement {@link #createAndConfirmBooking(HttpServerExchange)} which does both
-     * reservation and confirmation, this method can be left empty or non-overridden.
-     */
     public void confirmBooking(HttpServerExchange exchange) {
         AppLogger.info(TAG, "Confirm booking");
         ConfirmBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ConfirmBookingRequest.class);
@@ -886,11 +874,6 @@ public class RestService {
         }
     }
 
-    /**
-     * Only implement this method if {@link PluginCapability#RESERVATIONS} is <b>NOT</b> among capabilities of your {@link PluginDefinition}.
-     * Otherwise you are only required to implement both {@link #createReservation(HttpServerExchange)} and {@link
-     * #confirmBooking(HttpServerExchange)} separately; this method should remain empty or non-overridden.
-     */
     public void createAndConfirmBooking(HttpServerExchange exchange) {
         AppLogger.info(TAG, "In ::createAndConfirmBooking");          // should never happen
 //        throw new UnsupportedOperationException();
