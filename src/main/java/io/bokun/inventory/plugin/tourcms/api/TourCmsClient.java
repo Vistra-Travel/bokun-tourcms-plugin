@@ -203,10 +203,28 @@ public class TourCmsClient {
         }
     }
 
+    public static String escapeXml(String input) {
+        if (input == null) {
+            return null;
+        }
+        return input
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
+    }
+
     public String updateCustomer(TourCMSCustomer customer) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
         JAXBContext context = JAXBContext.newInstance(TourCMSCustomerWrapper.class);
         Marshaller marshaller = context.createMarshaller();
         marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+
+        // Escape dữ liệu trước khi marshal
+        customer.setFirstName(escapeXml(customer.getFirstName()));
+        customer.setSurname(escapeXml(customer.getSurname()));
+        customer.setEmail(escapeXml(customer.getEmail()));
+        customer.setTelMobile(escapeXml(customer.getTelMobile()));
 
         TourCMSCustomerWrapper wrapper = new TourCMSCustomerWrapper(customer);
 
