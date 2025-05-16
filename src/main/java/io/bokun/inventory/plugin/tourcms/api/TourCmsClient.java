@@ -339,7 +339,7 @@ public class TourCmsClient {
     }
 
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeyException, JAXBException {
-        TourCmsClient tourCmsClient = new TourCmsClient("58193", "3930", "Q3NujxeAumuTvJbWF");
+        TourCmsClient tourCmsClient = new TourCmsClient("58193", "16079", "Q3NujxeAumuTvJbWF");
 
 //        String product = tourCmsClient.getProduct("48", true);
 //        AppLogger.info(TAG, String.format(" - Response: %s", product));
@@ -353,9 +353,50 @@ public class TourCmsClient {
 
         // tourCmsClient.deleteTemporaryBooking("65277");
 
-        TourCMSBooking booking = new TourCMSBooking();
-        booking.setBookingId("65277");
-        booking.setNote("OK");
-        tourCmsClient.cancelBooking(booking);
+//        TourCMSBooking booking = new TourCMSBooking();
+//        booking.setBookingId("65277");
+//        booking.setNote("OK");
+//        tourCmsClient.cancelBooking(booking);
+
+//        try {
+//            // Tạo đối tượng TourCMSCustomer
+//            TourCMSCustomer customer = new TourCMSCustomer();
+//            customer.setCustomerId("53035303");
+//            customer.setFirstName("Ronald");
+//            customer.setSurname("Zwicke");
+//            customer.setEmail("S-e9f440bd44724289b7a8dd72e8ee4c22+1260954621-0jojyqwc2gv9g@expmessaging.tripadvisor.com");
+//            customer.setTelMobile("14436538976");
+//
+//            // Tạo wrapper
+//            TourCMSCustomerWrapper wrapper = new TourCMSCustomerWrapper(customer);
+//
+//            // Marshal ra XML
+//            JAXBContext context = JAXBContext.newInstance(TourCMSCustomerWrapper.class);
+//            Marshaller marshaller = context.createMarshaller();
+//            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+//
+//            StringWriter stringWriter = new StringWriter();
+//            marshaller.marshal(wrapper, stringWriter);
+//
+//            System.out.println(stringWriter.toString());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+
+        try {
+            // Tạo đối tượng khách hàng
+            TourCMSCustomer customer = new TourCMSCustomer();
+            customer.setCustomerId("53035303");
+            customer.setFirstName("Ronald");
+            customer.setSurname("Zwicke");
+            customer.setEmail("S-e9f440bd44724289b7a8dd72e8ee4c22+1260954621-0jojyqwc2gv9g@expmessaging.tripadvisor.com");
+            customer.setTelMobile("14436538976");
+
+            // Gọi updateCustomer
+            tourCmsClient.updateCustomer(customer);
+
+        } catch (Exception e) {
+            AppLogger.error(TAG, "❌ Error: " + e.getMessage(), e);
+        }
     }
 }
