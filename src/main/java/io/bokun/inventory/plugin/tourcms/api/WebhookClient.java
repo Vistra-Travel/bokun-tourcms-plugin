@@ -10,7 +10,9 @@ import java.util.concurrent.CompletableFuture;
 public class WebhookClient {
 
     private static final String TAG = "WebhookSender";
-    private static final String WEBHOOK_URL = "https://hook.eu1.make.com/wb7kjoyhpp1nvpa5dkhcqlhrub09h5es";
+    private static final String WEBHOOK_URL = System.getenv("WEBHOOK_URL") != null
+            ? System.getenv("WEBHOOK_URL")
+            : "https://hook.eu1.make.com/wb7kjoyhpp1nvpa5dkhcqlhrub09h5es";
     private static final OkHttpClient httpClient = new OkHttpClient();
 
     public static CompletableFuture<Void> sendWebhook(Map<String, String> data) {
