@@ -5,6 +5,7 @@ import javax.activation.DataSource;
 import javax.activation.FileDataSource;
 import javax.mail.*;
 import javax.mail.internet.*;
+import javax.mail.util.ByteArrayDataSource;
 import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -13,8 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
-import java.util.Properties;
+import java.util.*;
 
 public class EmailSender {
 
@@ -45,7 +45,8 @@ public class EmailSender {
             String bookingId,
             String bookingDate,
             String startTime,
-            String voucherLink
+            String voucherLink,
+            List<Map<String, String>> ticketCodes
     ) {
         Properties properties = new Properties();
         properties.put("mail.smtp.auth", "true");
@@ -93,11 +94,9 @@ public class EmailSender {
                 messageBodyPart.setText(messageContent);
             }
 
-//            // Tải file từ URL
-//            File downloadedFile = downloadFileFromUrl(fileUrl);
-//            // Tạo MimeBodyPart cho attachment
-//            MimeBodyPart attachmentPart = new MimeBodyPart();
-//            attachmentPart.attachFile(downloadedFile);
+            // Tạo multipart
+            Multipart multipart = new MimeMultipart();
+            multipart.addBodyPart(messageBodyPart);
 
             // Đính kèm logo
             MimeBodyPart logoPart = new MimeBodyPart();
@@ -105,12 +104,23 @@ public class EmailSender {
             logoPart.setDataHandler(new DataHandler(fds));
             logoPart.setHeader("Content-ID", "<logo_cid>");
             logoPart.setDisposition(MimeBodyPart.INLINE);
-
-            // Tạo multipart
-            Multipart multipart = new MimeMultipart();
-            multipart.addBodyPart(messageBodyPart);
-//            multipart.addBodyPart(attachmentPart);
             multipart.addBodyPart(logoPart);
+
+            // === 📌 **Download QR Codes and Attach to Email** ===
+            for (Map<String, String> ticket : ticketCodes) {
+                String ticketName = ticket.get("name");
+                String ticketCode = ticket.get("code");
+
+                AppLogger.info(TAG, String.format("Downloading QR Code for Ticket: %s", ticketName));
+                byte[] qrData = downloadFileAsByteArray(String.format("https://office.palisis.com/pit/bo/public/barcode.png?size=300&qrcontent=%s", ticketCode));
+                AppLogger.info(TAG, String.format("Downloaded QR Code for ticket: %s", ticketName));
+
+                // Tạo MimeBodyPart cho QR Code
+                MimeBodyPart qrPart = new MimeBodyPart();
+                qrPart.setDataHandler(new DataHandler(new ByteArrayDataSource(qrData, "image/png")));
+                qrPart.setFileName(String.format("Ticket-%s-%s.png", ticketName, ticketCode));
+                multipart.addBodyPart(qrPart);
+            }
 
             // Set multipart vào message
             message.setContent(multipart);
@@ -119,13 +129,6 @@ public class EmailSender {
             Transport.send(message);
 
             AppLogger.info(TAG, String.format("Email sent to %s successfully", toEmail));
-
-//            // Xóa file sau khi gửi xong
-//            if (downloadedFile.exists() && downloadedFile.delete()) {
-//                AppLogger.info(TAG, "Temporary file deleted: " + downloadedFile.getAbsolutePath());
-//            } else {
-//                AppLogger.warn(TAG, "Failed to delete temporary file: " + downloadedFile.getAbsolutePath());
-//            }
 
         } catch (Exception e) {
             AppLogger.error(TAG, String.format("Failed to send email to %s", toEmail), e);
@@ -154,14 +157,21 @@ public class EmailSender {
         return LocalDateTime.now().format(formatter);
     }
 
-    // Tải file từ URL
-    private static File downloadFileFromUrl(String fileUrl) throws IOException {
-        URL url = new URL(fileUrl);
-        String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
-
-        if (!fileName.contains(".")) {
-            fileName = fileName + ".pdf";
+    private static byte[] downloadFileAsByteArray(String fileUrl) throws IOException {
+        try (InputStream in = new URL(fileUrl).openStream();
+             ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+            byte[] temp = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = in.read(temp)) != -1) {
+                buffer.write(temp, 0, bytesRead);
+            }
+            return buffer.toByteArray();
         }
+    }
+
+    // Tải file từ URL
+    private static File downloadFileFromUrl(String fileUrl, String fileName) throws IOException {
+        URL url = new URL(fileUrl);
 
         Path tempDir = Files.createTempDirectory("attachments");
         Path tempFile = tempDir.resolve(fileName);
@@ -186,15 +196,31 @@ public class EmailSender {
 
     public static void main(String[] args) {
         EmailSender sender = new EmailSender(null, null, null, "nyxtung97@gmail.com,ntuanhung6@gmail.com");
+
+        Map<String, String> adultTicket = new HashMap<>();
+        adultTicket.put("name", "Adult");
+        adultTicket.put("code", "D11E798F603021790");
+
+        Map<String, String> childTicket = new HashMap<>();
+        childTicket.put("name", "Child");
+        childTicket.put("code", "E21E798F603021791");
+
+        List<Map<String, String>> tickets = new ArrayList<>();
+        tickets.add(adultTicket);
+        tickets.add(childTicket);
+
+        String bookingId = "BK98765411";
+        String fullName = "Jk Jake";
         sender.sendEmailWithAttachment(
                 "phuchau1509@gmail.com",
-                "Booking Confirmation",
+                String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
                 "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                "Jake 2",
-                "BK98765411",
-                "2025-05-17",
+                fullName,
+                bookingId,
+                "2025-05-19",
                 "10:00",
-                "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+                "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+                tickets
         );
     }
 }

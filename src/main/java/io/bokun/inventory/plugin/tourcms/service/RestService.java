@@ -853,20 +853,38 @@ public class RestService {
             AppLogger.info(TAG, String.format("-> Return Response: %s", responseJson));
             exchange.getResponseSender().send(responseJson);
 
+            JsonNode tickets = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("components").path("component").path("tickets").path("ticket");
+            List<JsonNode> ticketsNodeList = tickets.isArray() ?
+                    ImmutableList.copyOf(tickets) :
+                    ImmutableList.of(tickets);
+            List<Map<String, String>> ticketsList = new ArrayList<>();
+            for (JsonNode t: ticketsNodeList) {
+                String label = t.path("label").asText();
+                String value = t.path("value").asText();
+                if (label != null && value != null) {
+                    Map<String, String> mapTicket = new HashMap<>();
+                    mapTicket.put("name", label);
+                    mapTicket.put("code", value);
+                    ticketsList.add(mapTicket);
+                }
+            }
+
             // === Gửi Email: chạy bất đồng bộ ===
             CompletableFuture.runAsync(() -> {
                 try {
                     AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
                     EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
+                    String fullName = request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName();
                     sender.sendEmailWithAttachment(
                             request.getReservationData().getCustomerContact().getEmail(),
-                            "Booking Confirmation",
+                            String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
                             "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                            request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
+                            fullName,
                             bookingId,
                             date,
                             startTime,
-                            voucherUrl
+                            voucherUrl,
+                            ticketsList
                     );
                     AppLogger.info(TAG, "✅ Email sent!");
                 } catch (Exception e) {
@@ -1111,20 +1129,38 @@ public class RestService {
         AppLogger.info(TAG, String.format("-> Response: %s", responseJson));
         exchange.getResponseSender().send(responseJson);
 
+        JsonNode tickets = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("components").path("component").path("tickets").path("ticket");
+        List<JsonNode> ticketsNodeList = tickets.isArray() ?
+                ImmutableList.copyOf(tickets) :
+                ImmutableList.of(tickets);
+        List<Map<String, String>> ticketsList = new ArrayList<>();
+        for (JsonNode t: ticketsNodeList) {
+            String label = t.path("label").asText();
+            String value = t.path("value").asText();
+            if (label != null && value != null) {
+                Map<String, String> mapTicket = new HashMap<>();
+                mapTicket.put("name", label);
+                mapTicket.put("code", value);
+                ticketsList.add(mapTicket);
+            }
+        }
+
         // === Gửi Email: chạy bất đồng bộ ===
         CompletableFuture.runAsync(() -> {
             try {
                 AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
                 EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
+                String fullName = request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName();
                 sender.sendEmailWithAttachment(
                         request.getReservationData().getCustomerContact().getEmail(),
-                        "Booking Confirmation",
+                        String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
                         "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                        request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName(),
+                        fullName,
                         bookingId,
                         date,
                         startTime,
-                        voucherUrl
+                        voucherUrl,
+                        ticketsList
                 );
                 AppLogger.info(TAG, "✅ Email sent!");
             } catch (Exception e) {
