@@ -909,6 +909,7 @@ public class RestService {
 
                     String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
                     String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
+                    AppLogger.info(TAG, "- Found customer id: " + customerId);
 
                     // Khởi tạo đối tượng customer để cập nhật
                     TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
