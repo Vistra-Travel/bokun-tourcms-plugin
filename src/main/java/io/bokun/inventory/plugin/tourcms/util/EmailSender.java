@@ -134,14 +134,19 @@ public class EmailSender {
                     }
                 } catch (Exception e) {
                     AppLogger.error(TAG, String.format("Failed to generate ticket QR: %s", ticketCode), e);
-                    byte[] qrData = downloadFileAsByteArray(String.format("https://office.palisis.com/pit/bo/public/barcode.png?size=300&qrcontent=%s", ticketCode));
-                    AppLogger.info(TAG, String.format("Downloaded QR Code for ticket: %s", ticketName));
 
-                    // Tạo MimeBodyPart cho QR Code
-                    MimeBodyPart qrPart = new MimeBodyPart();
-                    qrPart.setDataHandler(new DataHandler(new ByteArrayDataSource(qrData, "image/png")));
-                    qrPart.setFileName(String.format("Ticket-%s-%s.png", ticketName, ticketCode));
-                    multipart.addBodyPart(qrPart);
+                    try {
+                        byte[] qrData = downloadFileAsByteArray(String.format("https://office.palisis.com/pit/bo/public/barcode.png?size=300&qrcontent=%s", ticketCode));
+                        AppLogger.info(TAG, String.format("Downloaded QR Code for ticket: %s", ticketName));
+
+                        // Tạo MimeBodyPart cho QR Code
+                        MimeBodyPart qrPart = new MimeBodyPart();
+                        qrPart.setDataHandler(new DataHandler(new ByteArrayDataSource(qrData, "image/png")));
+                        qrPart.setFileName(String.format("Ticket-%s-%s.png", ticketName, ticketCode));
+                        multipart.addBodyPart(qrPart);
+                    } catch (Exception e1) {
+                        AppLogger.error(TAG, String.format("Failed to download QR Code for ticket: %s", ticketCode), e);
+                    }
                 }
             }
 
