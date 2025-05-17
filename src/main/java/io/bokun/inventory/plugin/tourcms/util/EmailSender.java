@@ -1,5 +1,6 @@
 package io.bokun.inventory.plugin.tourcms.util;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
 import javax.activation.FileDataSource;
@@ -41,7 +42,9 @@ public class EmailSender {
             String toEmail,
             String subject,
             String messageContent,
+            String componentName,
             String customerName,
+            String customerPhone,
             String bookingId,
             String bookingDate,
             String startTime,
@@ -111,15 +114,35 @@ public class EmailSender {
                 String ticketName = ticket.get("name");
                 String ticketCode = ticket.get("code");
 
-                AppLogger.info(TAG, String.format("Downloading QR Code for Ticket: %s", ticketName));
-                byte[] qrData = downloadFileAsByteArray(String.format("https://office.palisis.com/pit/bo/public/barcode.png?size=300&qrcontent=%s", ticketCode));
-                AppLogger.info(TAG, String.format("Downloaded QR Code for ticket: %s", ticketName));
+                try {
+                    ObjectNode qrResponse = TicketQRGenerator.generateTicketQr(ticketCode, componentName, customerName, customerPhone, ticketName, String.format("Ticket_QR_%s_%s", ticketName, ticketCode));
+                    if (qrResponse.get("code").asText().equals("SUCCESS")) {
+                        String filePath = qrResponse.get("path").asText();
+                        File qrFile = new File(filePath);
 
-                // Tạo MimeBodyPart cho QR Code
-                MimeBodyPart qrPart = new MimeBodyPart();
-                qrPart.setDataHandler(new DataHandler(new ByteArrayDataSource(qrData, "image/png")));
-                qrPart.setFileName(String.format("Ticket-%s-%s.png", ticketName, ticketCode));
-                multipart.addBodyPart(qrPart);
+                        AppLogger.info(TAG, String.format("QR Code generated successfully for ticket: %s", qrFile.getAbsoluteFile()));
+
+                        // Tạo MimeBodyPart cho QR Code
+                        MimeBodyPart qrPart = new MimeBodyPart();
+                        qrPart.attachFile(qrFile); // Đính kèm file trực tiếp vào email
+                        qrPart.setFileName(String.format("Ticket-%s-%s.png", ticketName, ticketCode));
+                        multipart.addBodyPart(qrPart);
+
+                        qrFile.deleteOnExit();
+                    } else {
+                        AppLogger.error(TAG, String.format("Failed to generate QR Code for ticket: %s", ticketName));
+                    }
+                } catch (Exception e) {
+                    AppLogger.error(TAG, String.format("Failed to generate ticket QR: %s", ticketCode), e);
+                    byte[] qrData = downloadFileAsByteArray(String.format("https://office.palisis.com/pit/bo/public/barcode.png?size=300&qrcontent=%s", ticketCode));
+                    AppLogger.info(TAG, String.format("Downloaded QR Code for ticket: %s", ticketName));
+
+                    // Tạo MimeBodyPart cho QR Code
+                    MimeBodyPart qrPart = new MimeBodyPart();
+                    qrPart.setDataHandler(new DataHandler(new ByteArrayDataSource(qrData, "image/png")));
+                    qrPart.setFileName(String.format("Ticket-%s-%s.png", ticketName, ticketCode));
+                    multipart.addBodyPart(qrPart);
+                }
             }
 
             // Set multipart vào message
@@ -215,7 +238,9 @@ public class EmailSender {
                 "phuchau1509@gmail.com",
                 String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
                 "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                "Barcelona City Tour Hop On - Hop Off",
                 fullName,
+                "+84987654321",
                 bookingId,
                 "2025-05-19",
                 "10:00",

@@ -99,6 +99,10 @@ dependencies {
     compile 'org.glassfish.jaxb:jaxb-runtime:2.3.1'
     compile 'javax.activation:activation:1.1.1'
 
+    // ZXing QR Code Generator
+    compile group: 'com.google.zxing', name: 'core', version: '3.5.3'
+    compile group: 'com.google.zxing', name: 'javase', version: '3.5.3'
+
     // Testing
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }

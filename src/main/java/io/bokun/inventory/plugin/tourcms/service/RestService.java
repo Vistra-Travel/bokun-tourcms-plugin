@@ -853,6 +853,7 @@ public class RestService {
             AppLogger.info(TAG, String.format("-> Return Response: %s", responseJson));
             exchange.getResponseSender().send(responseJson);
 
+            String componentName = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("components").path("component").path("component_name").asText();
             JsonNode tickets = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("components").path("component").path("tickets").path("ticket");
             List<JsonNode> ticketsNodeList = tickets.isArray() ?
                     ImmutableList.copyOf(tickets) :
@@ -875,11 +876,14 @@ public class RestService {
                     AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
                     EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
                     String fullName = request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName();
+                    String phone = request.getReservationData().getCustomerContact().getPhone();
                     sender.sendEmailWithAttachment(
                             request.getReservationData().getCustomerContact().getEmail(),
                             String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
                             "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                            componentName,
                             fullName,
+                            phone,
                             bookingId,
                             date,
                             startTime,
@@ -1130,6 +1134,7 @@ public class RestService {
         exchange.getResponseSender().send(responseJson);
 
         JsonNode tickets = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("components").path("component").path("tickets").path("ticket");
+        String componentName = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("components").path("component").path("component_name").asText();
         List<JsonNode> ticketsNodeList = tickets.isArray() ?
                 ImmutableList.copyOf(tickets) :
                 ImmutableList.of(tickets);
@@ -1151,11 +1156,14 @@ public class RestService {
                 AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
                 EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
                 String fullName = request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName();
+                String phone = request.getReservationData().getCustomerContact().getPhone();
                 sender.sendEmailWithAttachment(
                         request.getReservationData().getCustomerContact().getEmail(),
                         String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
                         "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                        componentName,
                         fullName,
+                        phone,
                         bookingId,
                         date,
                         startTime,
