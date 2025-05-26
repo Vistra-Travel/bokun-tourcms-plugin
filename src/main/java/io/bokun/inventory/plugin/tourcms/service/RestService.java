@@ -654,7 +654,8 @@ public class RestService {
         // Set header và gửi response
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         String response = new Gson().toJson(productAvailabilityWithRatesResponses);
-        AppLogger.info(TAG, String.format("-> Response: %s items", productAvailabilityWithRatesResponses.size()));
+        // AppLogger.info(TAG, String.format("-> Response: %s items", productAvailabilityWithRatesResponses.size()));
+        AppLogger.info(TAG, String.format("-> Response: %s", response));
         exchange.getResponseSender().send(response);
     }
 
