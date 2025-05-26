@@ -65,8 +65,8 @@ public class RestService {
 
     public void getDefinition(@Nonnull HttpServerExchange exchange) {
         PluginDefinition definition = new PluginDefinition();
-        definition.setName("TourCMS REST plugin");
-        definition.setDescription("Provides availability and accepts bookings into Bókun booking system. Uses REST protocol");
+        definition.setName("PROMO TourCMS plugin");
+        definition.setDescription("Promo feature for TourCMS. Uses REST protocol");
 
         definition.getCapabilities().add(AVAILABILITY);
 
