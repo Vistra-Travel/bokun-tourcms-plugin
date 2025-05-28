@@ -153,30 +153,30 @@ public class TicketQRGenerator {
             }
         }
 
-        File logoFile = new File(LOGO_PATH);
-        if (logoFile.exists()) {
-            BufferedImage logo = ImageIO.read(logoFile);
-            int logoMaxWidth = 100;
-            int originalWidth = logo.getWidth();
-            int originalHeight = logo.getHeight();
-            float aspectRatio = (float) originalHeight / originalWidth;
+        // File logoFile = new File(LOGO_PATH);
+        // if (logoFile.exists()) {
+        //     BufferedImage logo = ImageIO.read(logoFile);
+        //     int logoMaxWidth = 100;
+        //     int originalWidth = logo.getWidth();
+        //     int originalHeight = logo.getHeight();
+        //     float aspectRatio = (float) originalHeight / originalWidth;
 
-            int logoWidth = Math.min(originalWidth, logoMaxWidth);
-            int logoHeight = Math.round(logoWidth * aspectRatio);
+        //     int logoWidth = Math.min(originalWidth, logoMaxWidth);
+        //     int logoHeight = Math.round(logoWidth * aspectRatio);
 
-            int logoX = qrX + (qrSize - logoWidth) / 2;
-            int logoY = qrY + (qrSize - logoHeight) / 2;
+        //     int logoX = qrX + (qrSize - logoWidth) / 2;
+        //     int logoY = qrY + (qrSize - logoHeight) / 2;
 
-            // Vẽ nền trắng với opacity
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.8f)); // Opacity 80%
-            g.setColor(Color.WHITE);
-            g.fillRoundRect(logoX - 8, logoY - 8, logoWidth + 16, logoHeight + 16, 20, 20);
+        //     // Vẽ nền trắng với opacity
+        //     g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.8f)); // Opacity 80%
+        //     g.setColor(Color.WHITE);
+        //     g.fillRoundRect(logoX - 8, logoY - 8, logoWidth + 16, logoHeight + 16, 20, 20);
 
-            // Reset lại Composite trước khi vẽ logo
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        //     // Reset lại Composite trước khi vẽ logo
+        //     g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
 
-            g.drawImage(logo, logoX, logoY, logoWidth, logoHeight, null);
-        }
+        //     g.drawImage(logo, logoX, logoY, logoWidth, logoHeight, null);
+        // }
 
         // === Footer ===
         g.setFont(footerFont);
