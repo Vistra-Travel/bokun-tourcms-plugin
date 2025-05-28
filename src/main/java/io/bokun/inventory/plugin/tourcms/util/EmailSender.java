@@ -69,7 +69,7 @@ public class EmailSender {
         try {
             // Tạo message
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(this.smtpUsername, "Vistra Travel"));
+            message.setFrom(new InternetAddress(this.smtpUsername, "Operation Team"));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
 
             // Thêm danh sách CC nếu có
