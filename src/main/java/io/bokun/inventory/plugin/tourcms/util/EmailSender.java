@@ -69,7 +69,7 @@ public class EmailSender {
         try {
             // Tạo message
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(this.smtpUsername, "Vistra Travel"));
+            message.setFrom(new InternetAddress(this.smtpUsername, "Operation Team"));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
 
             // Thêm danh sách CC nếu có
@@ -222,35 +222,35 @@ public class EmailSender {
         return tempFile;
     }
 
-    public static void main(String[] args) {
-        EmailSender sender = new EmailSender(null, null, null, "nyxtung97@gmail.com,ntuanhung6@gmail.com");
+    // public static void main(String[] args) {
+    //     EmailSender sender = new EmailSender(null, null, null, "nyxtung97@gmail.com,ntuanhung6@gmail.com");
 
-        Map<String, String> adultTicket = new HashMap<>();
-        adultTicket.put("name", "Adult");
-        adultTicket.put("code", "D11E798F603021790");
+    //     Map<String, String> adultTicket = new HashMap<>();
+    //     adultTicket.put("name", "Adult");
+    //     adultTicket.put("code", "D11E798F603021790");
 
-        Map<String, String> childTicket = new HashMap<>();
-        childTicket.put("name", "Child");
-        childTicket.put("code", "E21E798F603021791");
+    //     Map<String, String> childTicket = new HashMap<>();
+    //     childTicket.put("name", "Child");
+    //     childTicket.put("code", "E21E798F603021791");
 
-        List<Map<String, String>> tickets = new ArrayList<>();
-        tickets.add(adultTicket);
-        tickets.add(childTicket);
+    //     List<Map<String, String>> tickets = new ArrayList<>();
+    //     tickets.add(adultTicket);
+    //     tickets.add(childTicket);
 
-        String bookingId = "BK98765411";
-        String fullName = "Jk Jake";
-        sender.sendEmailWithAttachment(
-                "phuchau1509@gmail.com",
-                String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
-                "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                "Barcelona City Tour Hop On - Hop Off",
-                fullName,
-                "+84987654321",
-                bookingId,
-                "2025-05-19",
-                "10:00",
-                "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-                tickets
-        );
-    }
+    //     String bookingId = "BK98765411";
+    //     String fullName = "Jk Jake";
+    //     sender.sendEmailWithAttachment(
+    //             "phuchau1509@gmail.com",
+    //             String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
+    //             "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+    //             "Barcelona City Tour Hop On - Hop Off",
+    //             fullName,
+    //             "+84987654321",
+    //             bookingId,
+    //             "2025-05-19",
+    //             "10:00",
+    //             "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    //             tickets
+    //     );
+    // }
 }

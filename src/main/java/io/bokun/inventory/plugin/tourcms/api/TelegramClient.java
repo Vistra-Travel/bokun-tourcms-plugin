@@ -20,11 +20,11 @@ public class TelegramClient {
     // Cấu hình lấy từ System.getenv hoặc giá trị mặc định
     private static final String TELEGRAM_BOT_TOKEN = System.getenv("TELEGRAM_BOT_TOKEN") != null
             ? System.getenv("TELEGRAM_BOT_TOKEN")
-            : "8056450972:AAGf4IKe-Q-BB3tKWeVbq8qBXEDHZC1MjTU";
+            : "6824066112:AAE4tan8E82DKJJPAVG5jbmGrK8eT3wmtb4";
 
     private static final String TELEGRAM_GROUP_ID = System.getenv("TELEGRAM_GROUP_ID") != null
             ? System.getenv("TELEGRAM_GROUP_ID")
-            : "-1002621180787";
+            : "-1002423853811";
 
     private static final int MAX_RETRIES = System.getenv("TELEGRAM_MAX_RETRIES") != null
             ? Integer.parseInt(System.getenv("TELEGRAM_MAX_RETRIES"))
