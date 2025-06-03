@@ -18,6 +18,9 @@ import io.bokun.inventory.plugin.tourcms.util.EmailSender;
 import io.bokun.inventory.plugin.tourcms.util.Mapping;
 import io.undertow.server.HttpServerExchange;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.xml.bind.JAXBException;
 import java.io.IOException;
@@ -829,6 +832,30 @@ public class RestService {
         booking.setSuppressEmail(1); // Ignore send email to customer from TourCMS
 
         try {
+            try {
+                AppLogger.info(TAG, "Updating customer info...");
+
+                HashMap<String, Object> showBookingParams = new HashMap<>();
+                showBookingParams.put("booking_id", booking.getBookingId());
+                showBookingParams.put("components_order_by_rate", 1);
+
+                String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
+                String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
+                AppLogger.info(TAG, "- Found customer id: " + customerId);
+
+                TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
+                tourCMSCustomer.setCustomerId(customerId);
+                tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
+                tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
+                tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
+                tourCMSCustomer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
+                
+                tourCmsClient.updateCustomer(tourCMSCustomer);
+                AppLogger.info(TAG, "✅ Customer info updated!");
+            } catch (Exception e) {
+                AppLogger.error(TAG, "❌ Failed to update customer info: " + e.getMessage(), e);
+            }
+
             String commitBookingResponse = tourCmsClient.commitBooking(booking);
             String bookingId = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("booking_id").asText();
             String barcodeData = Mapping.MAPPER.readTree(commitBookingResponse).path("booking").path("barcode_data").asText();
@@ -872,30 +899,31 @@ public class RestService {
             }
 
             // === Gửi Email: chạy bất đồng bộ ===
-            CompletableFuture.runAsync(() -> {
+            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            scheduler.schedule(() -> {
                 try {
                     AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
                     EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
                     String fullName = request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName();
                     String phone = request.getReservationData().getCustomerContact().getPhone();
                     sender.sendEmailWithAttachment(
-                            request.getReservationData().getCustomerContact().getEmail(),
-                            String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
-                            "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                            componentName,
-                            fullName,
-                            phone,
-                            bookingId,
-                            date,
-                            startTime,
-                            voucherUrl,
-                            ticketsList
+                        request.getReservationData().getCustomerContact().getEmail(),
+                        String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
+                        "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                        componentName,
+                        fullName,
+                        phone,
+                        bookingId,
+                        date,
+                        startTime,
+                        voucherUrl,
+                        ticketsList
                     );
                     AppLogger.info(TAG, "✅ Email sent!");
                 } catch (Exception e) {
                     AppLogger.error(TAG, "❌ Failed to send email: " + e.getMessage(), e);
                 }
-            });
+            }, 60, TimeUnit.SECONDS);
 
             // === Gửi Webhook và Telegram: chạy bất đồng bộ ===
             CompletableFuture.runAsync(() -> {
@@ -920,35 +948,6 @@ public class RestService {
                 }
             });
 
-            // === Cập nhật thông tin khách hàng: chạy bất đồng bộ ===
-            CompletableFuture.runAsync(() -> {
-                try {
-                    AppLogger.info(TAG, "Updating customer info...");
-
-                    // Lấy thông tin booking
-                    HashMap<String, Object> showBookingParams = new HashMap<>();
-                    showBookingParams.put("booking_id", bookingId);
-                    showBookingParams.put("components_order_by_rate", 1);
-
-                    String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
-                    String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
-                    AppLogger.info(TAG, "- Found customer id: " + customerId);
-
-                    // Khởi tạo đối tượng customer để cập nhật
-                    TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
-                    tourCMSCustomer.setCustomerId(customerId);
-                    tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
-                    tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
-                    tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
-                    tourCMSCustomer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
-
-                    // Cập nhật thông tin
-                    tourCmsClient.updateCustomer(tourCMSCustomer);
-                    AppLogger.info(TAG, "✅ Customer info updated!");
-                } catch (Exception e) {
-                    AppLogger.error(TAG, "❌ Failed to update customer info: " + e.getMessage(), e);
-                }
-            });
         } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
@@ -1152,30 +1151,31 @@ public class RestService {
         }
 
         // === Gửi Email: chạy bất đồng bộ ===
-        CompletableFuture.runAsync(() -> {
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.schedule(() -> {
             try {
                 AppLogger.info(TAG, String.format("Sending email to customer: %s", request.getReservationData().getCustomerContact().getEmail()));
                 EmailSender sender = new EmailSender(configuration.smtpServer, configuration.smtpUsername, configuration.smtpPassword, configuration.mailCc);
                 String fullName = request.getReservationData().getCustomerContact().getFirstName() + " " + request.getReservationData().getCustomerContact().getLastName();
                 String phone = request.getReservationData().getCustomerContact().getPhone();
                 sender.sendEmailWithAttachment(
-                        request.getReservationData().getCustomerContact().getEmail(),
-                        String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
-                        "Your booking has been confirmed successfully! Click the link below to view your voucher.",
-                        componentName,
-                        fullName,
-                        phone,
-                        bookingId,
-                        date,
-                        startTime,
-                        voucherUrl,
-                        ticketsList
+                    request.getReservationData().getCustomerContact().getEmail(),
+                    String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
+                    "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                    componentName,
+                    fullName,
+                    phone,
+                    bookingId,
+                    date,
+                    startTime,
+                    voucherUrl,
+                    ticketsList
                 );
                 AppLogger.info(TAG, "✅ Email sent!");
             } catch (Exception e) {
                 AppLogger.error(TAG, "❌ Failed to send email: " + e.getMessage(), e);
             }
-        });
+        }, 60, TimeUnit.SECONDS);
 
         // === Gửi Webhook và Telegram: chạy bất đồng bộ ===
         CompletableFuture.runAsync(() -> {
