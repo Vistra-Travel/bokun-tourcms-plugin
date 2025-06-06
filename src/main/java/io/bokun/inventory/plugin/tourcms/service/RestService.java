@@ -821,6 +821,34 @@ public class RestService {
         String date = String.format("%04d-%02d-%02d", request.getReservationData().getDate().getYear(), request.getReservationData().getDate().getMonth(), request.getReservationData().getDate().getDay());
         String startTime = String.format("%02d:%02d", request.getReservationData().getTime().getHour(), request.getReservationData().getTime().getMinute());
 
+        // === Cập nhật thông tin khách hàng: Chạy trước khi commit booking đảm bảo khi commit thông tin đúng ===
+        try {
+            AppLogger.info(TAG, "Updating customer info...");
+
+            // Lấy thông tin booking
+            HashMap<String, Object> showBookingParams = new HashMap<>();
+            showBookingParams.put("booking_id", request.getReservationConfirmationCode());
+            showBookingParams.put("components_order_by_rate", 1);
+
+            String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
+            String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
+            AppLogger.info(TAG, "- Found customer id: " + customerId);
+
+            // Khởi tạo đối tượng customer để cập nhật
+            TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
+            tourCMSCustomer.setCustomerId(customerId);
+            tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
+            tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
+            tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
+            tourCMSCustomer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
+
+            // Cập nhật thông tin
+            tourCmsClient.updateCustomer(tourCMSCustomer);
+            AppLogger.info(TAG, "✅ Customer info updated!");
+        } catch (Exception e) {
+            AppLogger.error(TAG, "❌ Failed to update customer info: " + e.getMessage(), e);
+        }
+
         ConfirmBookingResponse response = new ConfirmBookingResponse();
         processBookingSourceInfo(request.getReservationData().getBookingSource());
 
@@ -920,35 +948,6 @@ public class RestService {
                 }
             });
 
-            // === Cập nhật thông tin khách hàng: chạy bất đồng bộ ===
-            CompletableFuture.runAsync(() -> {
-                try {
-                    AppLogger.info(TAG, "Updating customer info...");
-
-                    // Lấy thông tin booking
-                    HashMap<String, Object> showBookingParams = new HashMap<>();
-                    showBookingParams.put("booking_id", bookingId);
-                    showBookingParams.put("components_order_by_rate", 1);
-
-                    String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
-                    String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
-                    AppLogger.info(TAG, "- Found customer id: " + customerId);
-
-                    // Khởi tạo đối tượng customer để cập nhật
-                    TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
-                    tourCMSCustomer.setCustomerId(customerId);
-                    tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
-                    tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
-                    tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
-                    tourCMSCustomer.setTelMobile(request.getReservationData().getCustomerContact().getPhone());
-
-                    // Cập nhật thông tin
-                    tourCmsClient.updateCustomer(tourCMSCustomer);
-                    AppLogger.info(TAG, "✅ Customer info updated!");
-                } catch (Exception e) {
-                    AppLogger.error(TAG, "❌ Failed to update customer info: " + e.getMessage(), e);
-                }
-            });
         } catch (JAXBException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
             AppLogger.error(TAG, String.format("Couldn't commit booking: %s", e.getMessage()), e);
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
