@@ -9,6 +9,7 @@ import com.squareup.okhttp.OkHttpClient;
 import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.tourcms.Configuration;
 import io.bokun.inventory.plugin.tourcms.Main;
+import io.bokun.inventory.plugin.tourcms.api.BookingCustomerRepository;
 import io.bokun.inventory.plugin.tourcms.api.TelegramClient;
 import io.bokun.inventory.plugin.tourcms.api.TourCmsClient;
 import io.bokun.inventory.plugin.tourcms.api.WebhookClient;
@@ -774,6 +775,10 @@ public class RestService {
                 return;
             }
 
+            String leadCustomerId = Mapping.MAPPER.readTree(temporaryBookingResponse).path("booking").path("lead_customer_id").asText();
+
+            BookingCustomerRepository.insertCustomer(bookingId, leadCustomerId);
+
             successfulReservation.setReservationConfirmationCode(bookingId);
         } catch (IOException | NoSuchAlgorithmException | InvalidKeyException | JAXBException e) {
             AppLogger.error(TAG, String.format("Couldn't check tour availability: %s", e.getMessage()), e);
@@ -839,39 +844,8 @@ public class RestService {
                 showBookingParams.put("booking_id", booking.getBookingId());
                 showBookingParams.put("components_order_by_rate", 1);
 
-                String customerId = null;
-                int[] delaySeconds = {0, 30, 60, 180};
-
-                for (int attempt = 1; attempt <= 4; attempt++) {
-                    try {
-                        if (attempt > 1) {
-                            int delayTime = delaySeconds[attempt - 1];
-                            AppLogger.info(TAG, String.format("Retrying showBooking (attempt %d/4) after %d seconds delay...", attempt, delayTime));
-                            Thread.sleep(delayTime * 1000);
-                        }
-
-                        AppLogger.info(TAG, "showBooking request: " + showBookingParams);
-                        String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
-                        AppLogger.info(TAG, "showBooking response: " + showBookingResponse);
-
-                        if (!showBookingResponse.contains("XML_PARSING_FAILED")) {
-                            customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
-                            AppLogger.info(TAG, String.format("- Found customer id: '%s'", customerId));
-
-                            if (customerId != null && !customerId.trim().isEmpty()) {
-                                break;
-                            }
-                        }
-
-                        AppLogger.warn(TAG, String.format("Customer ID empty/null on attempt %d/4", attempt));
-
-                    } catch (Exception e) {
-                        AppLogger.error(TAG, String.format("showBooking failed on attempt %d/4: %s", attempt, e.getMessage()), e);
-                    }
-                }
-
                 TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
-                tourCMSCustomer.setCustomerId(customerId);
+                tourCMSCustomer.setCustomerId(BookingCustomerRepository.findCustomerIdById(booking.getBookingId()));
                 tourCMSCustomer.setEmail(request.getReservationData().getCustomerContact().getEmail());
                 tourCMSCustomer.setFirstName(request.getReservationData().getCustomerContact().getFirstName());
                 tourCMSCustomer.setSurname(request.getReservationData().getCustomerContact().getLastName());
