@@ -936,7 +936,7 @@ public class RestService {
                     sender.sendEmailWithAttachment(
                         request.getReservationData().getCustomerContact().getEmail(),
                         String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
-                        "Your booking has been confirmed successfully! Click the link below to view your voucher.",
+                        "Please open the link above and present the PDF ticket—with the Julia Travel logo and QR code—either on your phone or as a printed copy at check-in.",
                         componentName,
                         fullName,
                         phone,
