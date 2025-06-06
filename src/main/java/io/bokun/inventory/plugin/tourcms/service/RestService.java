@@ -752,6 +752,7 @@ public class RestService {
             tourCMSBooking.setCustomers(customers);
             String temporaryBookingResponse = tourCmsClient.createTemporaryBooking(tourCMSBooking);
             JsonNode bookingNode = Mapping.MAPPER.readTree(temporaryBookingResponse).path("booking");
+            String leadCustomerId = Mapping.MAPPER.readTree(temporaryBookingResponse).path("booking").path("lead_customer_id").asText();
             if (bookingNode.isMissingNode() || !bookingNode.elements().hasNext()) {
                 AppLogger.warn(TAG, "Booking is missing OR do not has next!");
                 successfulReservation.setReservationConfirmationCode(null);
@@ -770,8 +771,8 @@ public class RestService {
                 exchange.getResponseSender().send(new Gson().toJson(response));
                 return;
             }
-
-            successfulReservation.setReservationConfirmationCode(bookingId);
+            // we pass customer id thru to next step by concatenating with bookingId
+            successfulReservation.setReservationConfirmationCode(bookingId + "-" + leadCustomerId);
         } catch (IOException | NoSuchAlgorithmException | InvalidKeyException | JAXBException e) {
             AppLogger.error(TAG, String.format("Couldn't check tour availability: %s", e.getMessage()), e);
             successfulReservation.setReservationConfirmationCode(null);
@@ -815,6 +816,9 @@ public class RestService {
         String requestJson = new Gson().toJson(request);
         AppLogger.info(TAG, String.format("- Request: %s", requestJson));
 
+        String combinationReservationAndCustomerId = request.getReservationConfirmationCode();
+        String reservationCode = combinationReservationAndCustomerId.split("-")[0];
+        String customerId = combinationReservationAndCustomerId.split("-")[1];
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
         TourCmsClient tourCmsClient = new TourCmsClient(configuration.marketplaceId, configuration.channelId, configuration.getTourcmsPrivateKey());
 
@@ -824,16 +828,7 @@ public class RestService {
         // === Cập nhật thông tin khách hàng: Chạy trước khi commit booking đảm bảo khi commit thông tin đúng ===
         try {
             AppLogger.info(TAG, "Updating customer info...");
-
-            // Lấy thông tin booking
-            HashMap<String, Object> showBookingParams = new HashMap<>();
-            showBookingParams.put("booking_id", request.getReservationConfirmationCode());
-            showBookingParams.put("components_order_by_rate", 1);
-
-            String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
-            AppLogger.info(TAG, "Show Booking Response: " + showBookingResponse);
-            String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("customers").path("customer").path("customer_id").asText();
-            AppLogger.info(TAG, "- Found customer id: " + customerId);
+            AppLogger.info(TAG, "- Passed customer id: " + customerId);
 
             // Khởi tạo đối tượng customer để cập nhật
             TourCMSCustomer tourCMSCustomer = new TourCMSCustomer();
@@ -854,7 +849,7 @@ public class RestService {
         processBookingSourceInfo(request.getReservationData().getBookingSource());
 
         TourCMSBooking booking = new TourCMSBooking();
-        booking.setBookingId(request.getReservationConfirmationCode());
+        booking.setBookingId(reservationCode);
         booking.setSuppressEmail(1); // Ignore send email to customer from TourCMS
 
         try {
