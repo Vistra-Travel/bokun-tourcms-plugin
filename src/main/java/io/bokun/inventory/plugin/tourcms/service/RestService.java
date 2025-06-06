@@ -831,7 +831,8 @@ public class RestService {
             showBookingParams.put("components_order_by_rate", 1);
 
             String showBookingResponse = tourCmsClient.showBooking(showBookingParams);
-            String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("lead_customer_id").asText();
+            AppLogger.info(TAG, "Show Booking Response: " + showBookingResponse);
+            String customerId = Mapping.MAPPER.readTree(showBookingResponse).path("booking").path("customers").path("customer").path("customer_id").asText();
             AppLogger.info(TAG, "- Found customer id: " + customerId);
 
             // Khởi tạo đối tượng customer để cập nhật
