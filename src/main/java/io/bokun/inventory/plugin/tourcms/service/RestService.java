@@ -936,7 +936,7 @@ public class RestService {
                     sender.sendEmailWithAttachment(
                         request.getReservationData().getCustomerContact().getEmail(),
                         String.format("Booking confirmation - Client %s - Booking ID: %s", fullName, bookingId),
-                        "Please open the link above and present the PDF ticket—with the Julia Travel logo and QR code—either on your phone or as a printed copy at check-in.",
+                        "Please open the link below and present the PDF ticket—with the Julia Travel logo and QR code—either on your phone or as a printed copy at check-in.",
                         componentName,
                         fullName,
                         phone,
