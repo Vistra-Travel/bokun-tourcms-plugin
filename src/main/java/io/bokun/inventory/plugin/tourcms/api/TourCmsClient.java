@@ -132,6 +132,7 @@ public class TourCmsClient {
     private String resultResponse(Response response) throws IOException {
         assert response.body() != null;
         String xmlResponse = response.body().string();
+        AppLogger.info(TAG, "Raw response from Server: " + xmlResponse);
         Object data = xmlMapper.readValue(xmlResponse, Object.class);
         return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(data);
     }
