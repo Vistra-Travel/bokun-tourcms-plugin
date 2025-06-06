@@ -132,7 +132,6 @@ public class TourCmsClient {
     private String resultResponse(Response response) throws IOException {
         assert response.body() != null;
         String xmlResponse = response.body().string();
-        AppLogger.info(TAG, "Raw response from Server: " + xmlResponse);
         Object data = xmlMapper.readValue(xmlResponse, Object.class);
         return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(data);
     }
@@ -200,6 +199,7 @@ public class TourCmsClient {
             if (!response.isSuccessful()) {
                 throw new IOException("Failed to fetch products: " + response.message());
             }
+            AppLogger.info(TAG, "Raw response from show Booking: " + response);
             return resultResponse(response);
         }
     }
