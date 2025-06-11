@@ -13,6 +13,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 
 public class Mapping {
     private static final String TAG = Mapping.class.getSimpleName();
@@ -48,7 +49,10 @@ public class Mapping {
             int minAge = !priceNote.path("agerange_min").isEmpty() ? priceNote.path("agerange_min").asInt() : 0;
             int maxAge = !priceNote.path("agerange_max").isEmpty() ? priceNote.path("agerange_max").asInt() : 0;
 
-            if (prices.stream().noneMatch(p -> p.getId().equals(rateId))) {
+            if (StringUtils.isNotBlank(rateId)
+                && prices.stream()
+                         .noneMatch(p -> p.getId()
+                                          .equals(rateId))) {
                 PricingCategory pricesCategory = new PricingCategory();
                 pricesCategory.setId(rateId);
                 pricesCategory.setLabel(rateName);
